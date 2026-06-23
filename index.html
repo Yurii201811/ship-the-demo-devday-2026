@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Ship the Demo: a playable OpenAI DevDay 2026 ticket contest entry by Yurii Bakurov.">
     <meta property="og:title" content="Ship the Demo">
-    <meta property="og:description" content="Collect context, tests, image assets, and a playable link before launching the demo.">
+    <meta property="og:description" content="Race through a late-night DevDay build: collect proof, dodge scope creep, and launch the playable demo.">
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://yurii201811.github.io/ship-the-demo-devday-2026/">
     <meta property="og:image" content="https://yurii201811.github.io/ship-the-demo-devday-2026/assets/og-ship-the-demo.png">
@@ -13,56 +13,80 @@
     <meta property="og:image:height" content="630">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Ship the Demo">
-    <meta name="twitter:description" content="Collect context, tests, image assets, and a playable link before launching the demo.">
+    <meta name="twitter:description" content="Race through a late-night DevDay build: collect proof, dodge scope creep, and launch the playable demo.">
     <meta name="twitter:image" content="https://yurii201811.github.io/ship-the-demo-devday-2026/assets/og-ship-the-demo.png">
     <title>Ship the Demo</title>
     <link rel="preload" href="./assets/devday-lab-bg.png" as="image">
     <link rel="preload" href="./assets/sprites.png" as="image">
-    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./styles.css?v=20260623-game7">
   </head>
   <body>
     <main class="app" aria-label="Ship the Demo game">
-      <section class="shell" aria-live="polite">
+      <section class="shell">
         <div class="topbar">
-          <div>
+          <div class="title-block">
             <h1>Ship the Demo</h1>
-            <p>Collect the build pieces, dodge scope creep, and launch the DevDay demo.</p>
+            <p>Four build pieces. One launch gate. Scope creep is already moving.</p>
           </div>
-          <div class="status">
-            <span id="timer">02:30</span>
-            <span id="score">0000</span>
+
+          <div class="status" aria-label="Run status">
+            <span class="stat">
+              <span>Time</span>
+              <strong id="timer">01:50</strong>
+            </span>
+            <span class="stat">
+              <span>Score</span>
+              <strong id="score">0000</strong>
+            </span>
+            <span class="stat">
+              <span>Focus</span>
+              <strong id="focus">100%</strong>
+            </span>
+            <span class="heat">
+              <span>Demo heat</span>
+              <i><b id="heat-fill"></b></i>
+            </span>
           </div>
         </div>
 
         <div class="stage-wrap">
-          <canvas id="game" width="1280" height="720" aria-label="Playable game canvas"></canvas>
+          <canvas id="game" aria-label="Playable game canvas"></canvas>
           <div class="overlay" id="overlay">
             <div class="overlay-panel">
-              <h2 id="overlay-title">Ready to ship?</h2>
-              <p id="overlay-copy">Grab all four artifacts, then reach the DevDay gate.</p>
-              <button id="start-button" type="button">Start run</button>
+              <h2 id="overlay-title">Make the room believe.</h2>
+              <p id="overlay-copy">You have 90 seconds to collect context, tests, art, and a playable link before scope creep drains the sprint.</p>
+              <button id="start-button" type="button">Start 90-sec sprint</button>
             </div>
           </div>
         </div>
 
         <div class="lower">
+          <div class="mission" aria-label="Current mission">
+            <strong id="mission-title">Context first</strong>
+            <span id="mission-copy">Find the real problem before the sprint gets loud.</span>
+          </div>
+
           <div class="checklist" aria-label="Artifacts">
             <span data-item="context">Context</span>
             <span data-item="tests">Tests</span>
             <span data-item="image">Image Assets</span>
             <span data-item="link">Playable Link</span>
           </div>
+
           <div class="controls">
+            <button id="dash" type="button" aria-label="Dash">Dash</button>
             <button id="restart" type="button" aria-label="Restart">Restart</button>
             <button id="mute" type="button" aria-label="Toggle sound">Sound on</button>
           </div>
         </div>
 
+        <p id="live-status" class="sr-only" aria-live="polite"></p>
+
         <p class="built">
-          Built by Yurii Bakurov with Codex, GPT-5.5 Pro for concept critique, and Image Gen for the game art.
+          Built by Yurii Bakurov as a static HTML/canvas game with Codex, GPT-5.5 Pro for critique, and Image Gen art.
         </p>
       </section>
     </main>
-    <script src="./app.js" defer></script>
+    <script src="./app.js?v=20260623-game7" defer></script>
   </body>
 </html>

@@ -24,14 +24,15 @@ body {
   margin: 0;
   min-height: 100%;
   background:
-    radial-gradient(circle at 82% 12%, rgba(91, 255, 160, 0.16), transparent 28%),
+    linear-gradient(145deg, rgba(255, 216, 79, 0.08), transparent 32%),
+    radial-gradient(circle at 84% 12%, rgba(91, 255, 160, 0.16), transparent 28%),
     radial-gradient(circle at 8% 70%, rgba(46, 215, 255, 0.11), transparent 30%),
     var(--bg);
   color: var(--text);
 }
 
 body {
-  min-height: 100vh;
+  min-height: 100dvh;
   overflow-x: hidden;
 }
 
@@ -42,37 +43,42 @@ button {
 }
 
 .app {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
-  padding: clamp(12px, 2.2vw, 28px);
+  padding: clamp(8px, 1.8vw, 24px);
 }
 
 .shell {
-  width: min(1420px, 100%);
+  width: min(1440px, 100%);
   display: grid;
-  gap: 14px;
+  grid-template-rows: auto minmax(360px, 1fr) auto auto;
+  gap: 10px;
 }
 
 .topbar,
 .lower {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 72px;
-  padding: 14px 16px;
+  display: grid;
+  gap: 14px;
   border: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(8, 13, 14, 0.84), rgba(5, 8, 9, 0.68));
+  background: linear-gradient(180deg, rgba(8, 13, 14, 0.86), rgba(5, 8, 9, 0.7));
   box-shadow: var(--shadow);
   backdrop-filter: blur(18px);
 }
 
 .topbar {
+  grid-template-columns: minmax(280px, 1fr) minmax(420px, auto);
+  align-items: center;
+  min-height: 82px;
+  padding: 14px 16px;
   border-radius: 8px 8px 0 0;
 }
 
 .lower {
+  grid-template-columns: minmax(260px, 0.9fr) minmax(340px, 1.1fr) auto;
+  align-items: center;
+  min-height: 76px;
+  padding: 12px 14px;
   border-radius: 0 0 8px 8px;
 }
 
@@ -83,13 +89,13 @@ p {
 }
 
 h1 {
-  font-size: clamp(1.7rem, 3vw, 3.4rem);
+  font-size: clamp(1.7rem, 3vw, 3.25rem);
   line-height: 0.96;
-  font-weight: 760;
+  font-weight: 780;
   letter-spacing: 0;
 }
 
-.topbar p,
+.title-block p,
 .built {
   margin-top: 8px;
   color: var(--muted);
@@ -99,26 +105,62 @@ h1 {
 
 .status {
   display: grid;
-  grid-auto-flow: column;
-  gap: 10px;
-  align-items: center;
+  grid-template-columns: repeat(3, minmax(86px, 1fr)) minmax(128px, 1.15fr);
+  gap: 8px;
+  align-items: stretch;
   font-variant-numeric: tabular-nums;
 }
 
-.status span {
-  min-width: 96px;
-  padding: 10px 12px;
-  border: 1px solid rgba(154, 255, 118, 0.28);
+.stat,
+.heat {
+  min-height: 56px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border: 1px solid rgba(154, 255, 118, 0.22);
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.36);
-  text-align: center;
-  font-size: 1.16rem;
-  font-weight: 780;
   box-shadow: inset 0 0 28px rgba(154, 255, 118, 0.08);
+}
+
+.stat span,
+.heat span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 780;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.stat strong {
+  font-size: clamp(1rem, 2vw, 1.28rem);
+  line-height: 1.05;
+}
+
+.heat i {
+  width: 100%;
+  height: 12px;
+  display: block;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.45);
+}
+
+.heat b {
+  width: 0%;
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--green), var(--yellow), var(--coral));
+  transition: width 120ms ease;
 }
 
 .stage-wrap {
   position: relative;
+  min-height: 420px;
+  height: min(62dvh, 720px);
   overflow: hidden;
   border-left: 1px solid var(--line);
   border-right: 1px solid var(--line);
@@ -129,8 +171,7 @@ h1 {
 canvas {
   display: block;
   width: 100%;
-  aspect-ratio: 16 / 9;
-  max-height: min(74vh, 760px);
+  height: 100%;
   background: #020303;
   touch-action: none;
 }
@@ -141,7 +182,7 @@ canvas {
   display: grid;
   place-items: center;
   padding: 18px;
-  background: radial-gradient(circle at 50% 45%, rgba(8, 20, 18, 0.28), rgba(0, 0, 0, 0.72));
+  background: radial-gradient(circle at 50% 45%, rgba(8, 20, 18, 0.24), rgba(0, 0, 0, 0.72));
   transition: opacity 180ms ease, visibility 180ms ease;
 }
 
@@ -152,8 +193,8 @@ canvas {
 }
 
 .overlay-panel {
-  width: min(420px, 94%);
-  padding: 24px;
+  width: min(470px, 94%);
+  padding: clamp(20px, 4vw, 30px);
   border: 1px solid rgba(154, 255, 118, 0.34);
   border-radius: 8px;
   background: var(--panel-strong);
@@ -162,8 +203,9 @@ canvas {
 }
 
 .overlay-panel h2 {
-  font-size: clamp(1.5rem, 4vw, 2.5rem);
+  font-size: clamp(1.45rem, 4vw, 2.7rem);
   line-height: 1.02;
+  letter-spacing: 0;
 }
 
 .overlay-panel p {
@@ -176,13 +218,13 @@ canvas {
 .controls button {
   cursor: pointer;
   min-height: 44px;
-  padding: 0 18px;
+  padding: 0 16px;
   border: 1px solid rgba(154, 255, 118, 0.48);
   border-radius: 8px;
   background: linear-gradient(180deg, rgba(56, 117, 61, 0.88), rgba(12, 46, 28, 0.92));
   color: #f5fff0;
-  font-size: 0.95rem;
-  font-weight: 760;
+  font-size: 0.92rem;
+  font-weight: 780;
   box-shadow: 0 0 28px rgba(154, 255, 118, 0.18), inset 0 0 24px rgba(255, 255, 255, 0.06);
 }
 
@@ -190,10 +232,36 @@ canvas {
   margin-top: 18px;
 }
 
+.controls button:disabled {
+  cursor: default;
+  color: rgba(242, 247, 241, 0.52);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
+.mission {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mission strong {
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.mission span {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
 .checklist {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
 }
 
 .checklist span {
@@ -205,14 +273,21 @@ canvas {
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.32);
   color: var(--muted);
-  font-size: 0.88rem;
-  font-weight: 720;
+  font-size: 0.84rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.checklist span.is-current {
+  border-color: rgba(57, 231, 255, 0.52);
+  color: var(--text);
+  box-shadow: inset 0 0 24px rgba(57, 231, 255, 0.12);
 }
 
 .checklist span.is-done {
   border-color: rgba(154, 255, 118, 0.5);
   color: var(--text);
-  box-shadow: inset 0 0 24px rgba(154, 255, 118, 0.12);
+  box-shadow: inset 0 0 24px rgba(154, 255, 118, 0.14);
 }
 
 .controls {
@@ -221,10 +296,27 @@ canvas {
 }
 
 .controls button {
-  min-width: 104px;
+  min-width: 92px;
   border-color: rgba(57, 231, 255, 0.32);
   background: linear-gradient(180deg, rgba(24, 47, 54, 0.92), rgba(8, 18, 21, 0.92));
   box-shadow: inset 0 0 20px rgba(57, 231, 255, 0.1);
+}
+
+#dash {
+  border-color: rgba(255, 216, 79, 0.42);
+  background: linear-gradient(180deg, rgba(94, 76, 21, 0.96), rgba(36, 27, 8, 0.96));
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .built {
@@ -232,34 +324,100 @@ canvas {
   text-align: center;
 }
 
-@media (max-width: 760px) {
-  .app {
-    padding: 8px;
-    place-items: start center;
-  }
-
+@media (max-width: 980px) {
   .topbar,
   .lower {
-    align-items: stretch;
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
   .status {
-    grid-auto-flow: column;
-    justify-content: stretch;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  .status span,
-  .controls button {
-    min-width: 0;
-    flex: 1;
-  }
-
-  canvas {
-    max-height: none;
+  .lower {
+    align-items: stretch;
   }
 
   .controls {
     width: 100%;
+  }
+
+  .controls button {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .app {
+    padding: 6px;
+    place-items: start center;
+  }
+
+  .shell {
+    min-height: calc(100dvh - 12px);
+    grid-template-rows: auto minmax(300px, 1fr) auto auto;
+    gap: 6px;
+  }
+
+  .topbar,
+  .lower {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  h1 {
+    font-size: clamp(1.45rem, 8vw, 2.15rem);
+  }
+
+  .title-block p,
+  .built {
+    font-size: 0.8rem;
+  }
+
+  .status {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .stat,
+  .heat {
+    min-height: 48px;
+    padding: 7px 8px;
+  }
+
+  .stage-wrap {
+    min-height: 300px;
+    height: min(47dvh, 460px);
+  }
+
+  .mission span {
+    font-size: 0.78rem;
+  }
+
+  .checklist {
+    gap: 6px;
+  }
+
+  .checklist span {
+    min-height: 32px;
+    padding: 0 8px;
+    font-size: 0.72rem;
+  }
+
+  .controls button {
+    min-height: 42px;
+    padding: 0 10px;
+    font-size: 0.82rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }
