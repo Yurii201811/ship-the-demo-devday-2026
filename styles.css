@@ -157,10 +157,19 @@ h1 {
   transition: width 120ms ease;
 }
 
+.heat.is-hot {
+  border-color: rgba(255, 103, 94, 0.5);
+  box-shadow: inset 0 0 28px rgba(255, 103, 94, 0.1), 0 0 22px rgba(255, 103, 94, 0.12);
+}
+
+.heat.is-hot b {
+  box-shadow: 0 0 16px rgba(255, 103, 94, 0.46);
+}
+
 .stage-wrap {
   position: relative;
   min-height: 420px;
-  height: min(62dvh, 720px);
+  height: min(58dvh, 680px);
   overflow: hidden;
   border-left: 1px solid var(--line);
   border-right: 1px solid var(--line);
@@ -326,6 +335,19 @@ canvas {
 #dash {
   border-color: rgba(255, 216, 79, 0.42);
   background: linear-gradient(180deg, rgba(94, 76, 21, 0.96), rgba(36, 27, 8, 0.96));
+}
+
+#dash.is-ready {
+  box-shadow: 0 0 22px rgba(255, 216, 79, 0.22), inset 0 0 20px rgba(255, 216, 79, 0.12);
+}
+
+#dash.is-shielded {
+  border-color: rgba(255, 216, 79, 0.72);
+  color: #fff7d1;
+}
+
+#dash.is-cooling {
+  box-shadow: none;
 }
 
 .sr-only {

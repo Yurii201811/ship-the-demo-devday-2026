@@ -4,6 +4,7 @@ const timerEl = document.querySelector("#timer");
 const scoreEl = document.querySelector("#score");
 const focusEl = document.querySelector("#focus");
 const heatFillEl = document.querySelector("#heat-fill");
+const heatBoxEl = document.querySelector(".heat");
 const missionTitleEl = document.querySelector("#mission-title");
 const missionCopyEl = document.querySelector("#mission-copy");
 const liveStatusEl = document.querySelector("#live-status");
@@ -26,6 +27,13 @@ sprites.src = "./assets/sprites.png";
 const BASE = { w: 1280, h: 720 };
 const RUN_SECONDS = 90;
 const BEST_SCORE_KEY = "ship-the-demo-best-score";
+const LEVELS = [
+  { name: "Briefing", hazards: 3, speed: 0.94, heat: 0.68, radius: 0.95 },
+  { name: "Trust", hazards: 4, speed: 1.1, heat: 0.98, radius: 1 },
+  { name: "Style", hazards: 5, speed: 1.24, heat: 1.32, radius: 1.04 },
+  { name: "Pressure", hazards: 5, speed: 1.42, heat: 1.72, radius: 1.08 },
+  { name: "Launch", hazards: 5, speed: 1.62, heat: 2.08, radius: 1.12 },
+];
 const spriteCols = 4;
 const spriteRows = 2;
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -102,12 +110,12 @@ const hazardDefs = [
 ];
 
 const insightDefs = [
-  { x: 0.17, y: 0.72, phase: 0.5 },
-  { x: 0.47, y: 0.29, phase: 1.9 },
-  { x: 0.61, y: 0.31, phase: 2.8 },
-  { x: 0.88, y: 0.70, phase: 3.4 },
-  { x: 0.43, y: 0.84, phase: 4.1 },
-  { x: 0.76, y: 0.38, phase: 5.2 },
+  { x: 0.17, y: 0.72, phase: 0.5, unlock: 0, value: 95 },
+  { x: 0.47, y: 0.29, phase: 1.9, unlock: 1, value: 110 },
+  { x: 0.61, y: 0.31, phase: 2.8, unlock: 1, value: 110 },
+  { x: 0.88, y: 0.70, phase: 3.4, unlock: 2, value: 125 },
+  { x: 0.43, y: 0.84, phase: 4.1, unlock: 3, value: 145 },
+  { x: 0.76, y: 0.38, phase: 5.2, unlock: 4, value: 170 },
 ];
 
 let world = { w: BASE.w, h: BASE.h, scale: 1, unit: BASE.h, dpr: 1 };
@@ -214,6 +222,9 @@ function resetState() {
     heat: 0,
     combo: 1,
     streak: 0,
+    levelStartedAt: 0,
+    captureProgress: 0,
+    captureKind: null,
     nextIndex: 0,
     collected: Object.fromEntries(missions.map((item) => [item.key, false])),
     player: { x: start.x, y: start.y, vx: 0, vy: 0, r: playerRadius() },
@@ -226,6 +237,9 @@ function resetState() {
     dashTime: 0,
     shield: 0,
     hitCooldown: 0,
+    levelFlash: 0,
+    hazardRush: 0,
+    finalSurge: false,
     shake: 0,
     flash: 0,
     gatePulse: 0,
@@ -235,9 +249,9 @@ function resetState() {
   announce("Ready. Collect the four build pieces before the sprint overheats.");
   showOverlay(
     "Make the room believe.",
-    "You have 90 seconds to collect context, tests, art, and a playable link before scope creep drains the sprint.",
+    "You have 90 seconds to clear five rising levels: collect context, tests, art, and a playable link before scope creep drains the sprint.",
     "Start 90-sec sprint",
-    "Desktop: WASD/arrows. Phone: tap/drag. Dash or Space = shielded burst.",
+    "Hold targets to lock them. Desktop: WASD/arrows. Phone: tap/drag. Dash/Space: shielded burst.",
   );
 }
 
@@ -273,6 +287,62 @@ function currentMission() {
   return missions[state.nextIndex] || null;
 }
 
+function currentLevelIndex() {
+  return clamp(state?.nextIndex ?? 0, 0, LEVELS.length - 1);
+}
+
+function currentLevel() {
+  return LEVELS[currentLevelIndex()];
+}
+
+function activeHazards() {
+  return hazardDefs.slice(0, currentLevel().hazards);
+}
+
+function isInsightUnlocked(item) {
+  return item.unlock <= state.nextIndex;
+}
+
+function insightLabel(index) {
+  return ["Cool", "Dash", "Shield"][index % 3];
+}
+
+function captureSeconds(kind) {
+  const mobileFactor = world.w < 640 ? 0.78 : 1;
+  const base = kind === "gate" ? 0.72 : 0.34 + currentLevelIndex() * 0.08;
+  return base * mobileFactor;
+}
+
+function captureRatio(kind) {
+  if (state.captureKind !== kind) return 0;
+  return clamp(state.captureProgress / captureSeconds(kind), 0, 1);
+}
+
+function updateCapture(dt, point, radius, kind, complete) {
+  const inside = distance(state.player, point) < playerRadius() + radius;
+
+  if (inside) {
+    if (state.captureKind !== kind) {
+      state.captureKind = kind;
+      state.captureProgress = 0;
+    }
+    state.captureProgress += dt;
+    state.message = kind === "gate" ? "Hold steady to launch." : "Hold steady to lock the build piece.";
+
+    if (state.captureProgress >= captureSeconds(kind)) {
+      state.captureProgress = 0;
+      state.captureKind = null;
+      complete();
+      return true;
+    }
+  } else if (state.captureKind === kind) {
+    state.captureProgress = Math.max(0, state.captureProgress - dt * 1.6);
+    if (state.captureProgress <= 0) state.captureKind = null;
+  }
+
+  return false;
+}
+
 function syncHud() {
   const remaining = Math.max(0, Math.ceil(RUN_SECONDS - state.elapsed));
   const mins = String(Math.floor(remaining / 60)).padStart(2, "0");
@@ -281,9 +351,10 @@ function syncHud() {
   scoreEl.textContent = formatScore(state.score);
   focusEl.textContent = `${Math.round(state.focus)}%`;
   heatFillEl.style.width = `${Math.round(state.heat)}%`;
+  heatBoxEl.classList.toggle("is-hot", state.heat >= 70 || state.finalSurge);
 
   const mission = currentMission();
-  missionTitleEl.textContent = mission ? mission.title : "Gate is live";
+  missionTitleEl.textContent = mission ? `L${currentLevelIndex() + 1}: ${mission.title}` : "L5: Gate is live";
   missionCopyEl.textContent = mission ? mission.copy : "Everything is ready. Launch it before the sprint overheats.";
 
   checklistEls.forEach((el) => {
@@ -299,6 +370,9 @@ function syncHud() {
     dashButton.disabled = false;
     dashButton.textContent = state.shield > 0 ? "Shield" : "Dash";
   }
+  dashButton.classList.toggle("is-ready", state.dashCooldown <= 0 && state.shield <= 0);
+  dashButton.classList.toggle("is-cooling", state.dashCooldown > 0);
+  dashButton.classList.toggle("is-shielded", state.shield > 0);
 }
 
 function drawImageCover(image, x, y, w, h) {
@@ -419,13 +493,68 @@ function drawTargetRing(x, y, radius, color, t) {
   ctx.restore();
 }
 
+function drawCaptureArc(x, y, radius, color, kind) {
+  const ratio = captureRatio(kind);
+  if (ratio <= 0) return;
+
+  ctx.save();
+  ctx.lineWidth = responsiveSize(7, 4, 8);
+  ctx.lineCap = "round";
+  ctx.strokeStyle = color;
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 16;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function hazardPosition(hazard) {
-  const difficulty = 1 + (state.elapsed / RUN_SECONDS) * 0.45 + state.nextIndex * 0.08;
+  const level = currentLevel();
+  const difficulty = level.speed + (state.elapsed / RUN_SECONDS) * 0.34 + state.hazardRush * 0.16 + (state.finalSurge ? 0.18 : 0);
   return {
     x: (hazard.x + Math.sin(state.elapsed * hazard.speed * difficulty + hazard.phase) * hazard.ax) * world.w,
     y: (hazard.y + Math.cos(state.elapsed * hazard.speed * 0.86 * difficulty + hazard.phase) * hazard.ay) * world.h,
-    r: clamp(world.unit * 0.068, 22, 42),
+    r: clamp(world.unit * 0.066 * level.radius, 22, 45),
   };
+}
+
+function roundedRectPath(x, y, w, h, r) {
+  const radius = Math.min(r, w * 0.5, h * 0.5);
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + w, y, x + w, y + h, radius);
+  ctx.arcTo(x + w, y + h, x, y + h, radius);
+  ctx.arcTo(x, y + h, x, y, radius);
+  ctx.arcTo(x, y, x + w, y, radius);
+}
+
+function drawLevelBanner() {
+  if (state.levelFlash <= 0) return;
+
+  const alpha = clamp(state.levelFlash, 0, 1);
+  const label = `LEVEL ${currentLevelIndex() + 1}: ${currentLevel().name}`;
+  const width = clamp(world.w * 0.42, 210, 390);
+  const height = responsiveSize(42, 34, 48);
+  const x = world.w * 0.5 - width * 0.5;
+  const y = responsiveSize(22, 14, 26);
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = "rgba(2, 4, 5, 0.72)";
+  ctx.strokeStyle = "rgba(154, 255, 118, 0.55)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  roundedRectPath(x, y, width, height, 8);
+  ctx.fill();
+  ctx.stroke();
+  ctx.font = `850 ${clamp(world.unit * 0.035, 13, 19)}px Inter, system-ui, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#f2f7f1";
+  ctx.shadowColor = "#9aff76";
+  ctx.shadowBlur = 12;
+  ctx.fillText(label, world.w * 0.5, y + height * 0.52, width - 24);
+  ctx.restore();
 }
 
 function drawDeadlineHeat() {
@@ -467,22 +596,25 @@ function drawGame() {
 
     if (!isCollected) {
       if (isCurrent) drawTargetRing(point.x, point.y + bob, pickupSize * 0.5, item.color, t);
+      if (isCurrent) drawCaptureArc(point.x, point.y + bob, pickupSize * 0.6, item.color, "mission");
       drawSprite(item.key, point.x, point.y + bob, pickupSize, alpha);
       drawLabel(item.label, point.x, point.y + pickupSize * 0.72 + bob, isCurrent ? item.color : "rgba(242,247,241,0.58)", alpha);
+      if (isCurrent) drawLabel("Hold to lock", point.x, point.y - pickupSize * 0.66 + bob, "#f2f7f1", 0.92);
     } else {
       drawSprite("spark", point.x, point.y + bob, pickupSize * 0.44, 0.55);
     }
   });
 
   state.insights.forEach((item, index) => {
-    if (item.collected) return;
+    if (item.collected || !isInsightUnlocked(item)) return;
     const point = pct(item);
     const bob = reduceMotion ? 0 : Math.sin(t * 3.2 + item.phase) * responsiveSize(7, 2, 6);
     const size = responsiveSize(54, 34, 62);
     drawSprite("spark", point.x, point.y + bob, size, 0.82, Math.sin(t + index) * 0.2);
+    drawLabel(insightLabel(index), point.x, point.y + size * 0.62 + bob, "#39e7ff", 0.72);
   });
 
-  hazardDefs.forEach((hazard) => {
+  activeHazards().forEach((hazard) => {
     const point = hazardPosition(hazard);
     const pulse = reduceMotion ? 1 : 1 + Math.sin(t * 5 + hazard.phase) * 0.045;
     ctx.save();
@@ -500,8 +632,13 @@ function drawGame() {
   const launchReady = state.nextIndex >= missions.length;
   const gateSize = responsiveSize(150, 80, 156);
   drawSprite("launch", gatePoint.x, gatePoint.y, launchReady ? gateSize + Math.sin(t * 6) * 8 : gateSize * 0.82, launchReady ? 1 : 0.44);
-  drawLabel(launchReady ? "Launch" : "Gate locked", gatePoint.x, gatePoint.y + gateSize * 0.64, launchReady ? "#9aff76" : "rgba(242,247,241,0.5)", launchReady ? 1 : 0.7);
-  if (launchReady) drawTargetRing(gatePoint.x, gatePoint.y, gateSize * 0.45, "#9aff76", t);
+  drawLabel(launchReady ? "Hold to launch" : "Gate locked", gatePoint.x, gatePoint.y + gateSize * 0.64, launchReady ? "#9aff76" : "rgba(242,247,241,0.5)", launchReady ? 1 : 0.7);
+  if (launchReady) {
+    drawTargetRing(gatePoint.x, gatePoint.y, gateSize * 0.45, "#9aff76", t);
+    drawCaptureArc(gatePoint.x, gatePoint.y, gateSize * 0.58, "#9aff76", "gate");
+  }
+
+  drawLevelBanner();
 
   state.particles.forEach((p) => {
     ctx.save();
@@ -633,23 +770,33 @@ function updateMovement(dt) {
 }
 
 function collectMission(item, point) {
+  const paceSeconds = state.elapsed - state.levelStartedAt;
+  const paceTarget = Math.max(10, 20 - state.nextIndex * 2.5);
+  const paceBonus = Math.max(0, Math.round((paceTarget - paceSeconds) * (18 + state.nextIndex * 4)));
   state.collected[item.key] = true;
   state.nextIndex += 1;
   state.streak += 1;
   state.combo = clamp(1 + state.streak * 0.22, 1, 2.1);
-  state.score += item.value * state.combo;
-  state.focus = clamp(state.focus + 12, 0, 100);
-  state.heat = clamp(state.heat - 14, 0, 100);
+  const baseAward = Math.round(item.value * state.combo);
+  const totalAward = baseAward + paceBonus;
+  state.score += totalAward;
+  state.focus = clamp(state.focus + 9, 0, 100);
+  state.heat = clamp(state.heat - 8, 0, 100);
+  state.levelStartedAt = state.elapsed;
+  state.levelFlash = 1.15;
+  state.hazardRush = 1.1;
   if (state.nextIndex >= missions.length) state.shield = Math.max(state.shield, 1.2);
   if (item.key === "tests") state.shield = Math.max(state.shield, 1.45);
   if (item.key === "image") {
     state.dashTime = Math.max(state.dashTime, 0.32);
     state.dashCooldown = 0;
   }
-  state.message = item.story;
-  announce(item.story);
+  const nextLevel = currentLevel();
+  state.message = state.nextIndex >= missions.length ? "Final level live. Launch while the gate is open." : `${item.story} Level ${currentLevelIndex() + 1}: ${nextLevel.name}.`;
+  announce(state.message);
   spawnBurst(point.x, point.y, item.color, 28);
-  addFloater(`+${Math.round(item.value * state.combo)}`, point.x, point.y - 20, item.color);
+  addFloater(`+${totalAward}`, point.x, point.y - 20, item.color);
+  if (paceBonus > 0) addFloater(`+fast ${paceBonus}`, point.x, point.y + 4, "#ffd84f");
   ping(720 + state.streak * 70, 0.07);
 }
 
@@ -666,7 +813,7 @@ function winRun() {
   ping(980, 0.13);
   showOverlay(
     "Demo shipped.",
-    `Score ${formatScore(state.score)}. Best ${formatScore(bestScore)}. Built as static HTML/canvas with Codex, GPT-5.5 Pro critique, and Image Gen art.`,
+    `Score ${formatScore(state.score)}. Best ${formatScore(bestScore)}. Cleared a five-level static HTML/canvas sprint built with Codex, GPT-5.5 Pro critique, and Image Gen art.`,
     "Run it again",
     "Copy the build note if you want the exact contest-ready wording for the X reply.",
   );
@@ -690,69 +837,90 @@ function update(dt) {
   state.dashCooldown = Math.max(0, state.dashCooldown - dt);
   state.dashTime = Math.max(0, state.dashTime - dt);
   state.shield = Math.max(0, state.shield - dt);
+  state.levelFlash = Math.max(0, state.levelFlash - dt * 1.4);
+  state.hazardRush = Math.max(0, state.hazardRush - dt * 0.62);
   state.shake = Math.max(0, state.shake - dt * 3);
   state.flash = Math.max(0, state.flash - dt * 2.4);
-  state.heat = clamp(state.heat + dt * (0.54 + state.nextIndex * 0.22), 0, 100);
+  const lockPressure = state.captureKind ? 0.72 + currentLevelIndex() * 0.22 : 0;
+  state.heat = clamp(state.heat + dt * (currentLevel().heat + lockPressure + state.hazardRush * 0.16 + (state.elapsed / RUN_SECONDS) * 0.12 + (state.finalSurge ? 0.18 : 0)), 0, 100);
   state.player.r = playerRadius();
+
+  if (!state.finalSurge && RUN_SECONDS - state.elapsed <= 25) {
+    state.finalSurge = true;
+    state.hazardRush = Math.max(state.hazardRush, 1.2);
+    state.levelFlash = Math.max(state.levelFlash, 0.9);
+    state.message = "Final review started. Ship clean.";
+    announce(state.message);
+  }
 
   updateMovement(dt);
 
   const mission = currentMission();
   if (mission) {
     const point = pct(mission);
-    if (distance(state.player, point) < playerRadius() + responsiveSize(42, 28, 54)) {
-      collectMission(mission, point);
-    }
+    updateCapture(dt, point, responsiveSize(48, 32, 60), "mission", () => collectMission(mission, point));
   }
 
-  state.insights.forEach((item) => {
-    if (item.collected) return;
+  state.insights.forEach((item, index) => {
+    if (item.collected || !isInsightUnlocked(item)) return;
     const point = pct(item);
     if (distance(state.player, point) < playerRadius() + responsiveSize(22, 18, 28)) {
+      const insightValue = Math.round(item.value * state.combo);
+      const effect = index % 3;
       item.collected = true;
-      state.score += 90 * state.combo;
-      state.focus = clamp(state.focus + 7, 0, 100);
-      state.heat = clamp(state.heat - 6, 0, 100);
-      state.message = "A tiny insight cooled the sprint.";
-      announce("Insight collected. Sprint heat cooled.");
+      state.score += insightValue;
+      state.focus = clamp(state.focus + 6 + state.nextIndex, 0, 100);
+      state.heat = clamp(state.heat - (effect === 0 ? 12 : 6) - state.nextIndex, 0, 100);
+      if (effect === 1) state.dashCooldown = 0;
+      if (effect === 2) state.shield = Math.max(state.shield, 0.75);
+      state.message = effect === 1 ? "Insight found. Dash is ready." : effect === 2 ? "Insight found. Short shield online." : "Insight found. Sprint heat cooled.";
+      announce(state.message);
       spawnBurst(point.x, point.y, "#39e7ff", 12);
-      addFloater("+insight", point.x, point.y - 12, "#39e7ff");
+      addFloater(`+${insightValue}`, point.x, point.y - 12, "#39e7ff");
+      if (effect === 1) addFloater("dash ready", point.x, point.y + 8, "#ffd84f");
+      if (effect === 2) addFloater("shield", point.x, point.y + 8, "#ffd84f");
       ping(640, 0.04);
     }
   });
 
   const gatePoint = pct(gate);
-  if (state.nextIndex >= missions.length && distance(state.player, gatePoint) < playerRadius() + responsiveSize(54, 32, 66)) {
-    winRun();
+  if (state.nextIndex >= missions.length && updateCapture(dt, gatePoint, responsiveSize(66, 42, 78), "gate", winRun)) {
     syncHud();
     return;
   }
 
-  hazardDefs.forEach((hazard) => {
+  activeHazards().forEach((hazard) => {
     const point = hazardPosition(hazard);
     if (distance(state.player, point) < point.r + state.player.r) {
       if (state.shield > 0) {
         if (state.hitCooldown <= 0) {
-          state.score += 35;
+          const parry = state.dashTime > 0;
+          const parryScore = parry ? 95 : 35;
+          state.score += parryScore;
+          state.heat = clamp(state.heat - (parry ? 4 : 1), 0, 100);
+          state.combo = clamp(state.combo + (parry ? 0.08 : 0.03), 1, 2.4);
           state.hitCooldown = 0.18;
-          state.message = "The dash slipped past a scope trap.";
-          announce("Dash slipped past a scope trap.");
+          state.message = parry ? "Perfect dash parry. Scope pressure cooled." : "The shield slipped past a scope trap.";
+          announce(state.message);
           spawnBurst(point.x, point.y, "#ffd84f", 8);
+          addFloater(parry ? `+parry ${parryScore}` : `+${parryScore}`, point.x, point.y - 12, "#ffd84f");
         }
         return;
       }
 
       if (state.hitCooldown <= 0) {
         state.score = Math.max(0, state.score - 180);
-        state.focus = clamp(state.focus - 12, 0, 100);
-        state.heat = clamp(state.heat + 9, 0, 100);
+        state.focus = clamp(state.focus - 14, 0, 100);
+        state.heat = clamp(state.heat + 12, 0, 100);
         state.combo = 1;
         state.streak = 0;
+        state.captureProgress = 0;
+        state.captureKind = null;
         state.hitCooldown = 1.05;
         state.shake = 0.28;
         state.flash = 0.8;
-        state.message = "Scope creep clipped the run. Breathe, recover, move.";
-        announce("Scope creep clipped the run. Recover and keep moving.");
+        state.message = "Scope creep clipped the run. Lock interrupted.";
+        announce("Scope creep clipped the run. Lock interrupted.");
         const dx = state.player.x - point.x;
         const dy = state.player.y - point.y;
         const mag = Math.hypot(dx, dy) || 1;
@@ -894,7 +1062,7 @@ copyBuildButton.addEventListener("click", async () => {
   const note = [
     "#OpenAIDevDay2026",
     "Playable: https://yurii201811.github.io/ship-the-demo-devday-2026/",
-    "Built as a static HTML/canvas game with Codex, GPT-5.5 Pro critique/tuning, and Image Gen art.",
+    "Built as a five-level static HTML/canvas game with Codex, GPT-5.5 Pro critique/tuning, and Image Gen art.",
   ].join("\n");
   try {
     await navigator.clipboard.writeText(note);
