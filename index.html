@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Ship the Demo: a playable OpenAI DevDay 2026 ticket contest entry by Yurii Bakurov.">
+    <meta property="og:title" content="Ship the Demo">
+    <meta property="og:description" content="Collect context, tests, image assets, and a playable link before launching the demo.">
+    <meta property="og:type" content="website">
+    <title>Ship the Demo</title>
+    <link rel="preload" href="./assets/devday-lab-bg.png" as="image">
+    <link rel="preload" href="./assets/sprites.png" as="image">
+    <link rel="stylesheet" href="./styles.css">
+  </head>
+  <body>
+    <main class="app" aria-label="Ship the Demo game">
+      <section class="shell" aria-live="polite">
+        <div class="topbar">
+          <div>
+            <h1>Ship the Demo</h1>
+            <p>Collect the build pieces, dodge scope creep, and launch the DevDay demo.</p>
+          </div>
+          <div class="status">
+            <span id="timer">02:30</span>
+            <span id="score">0000</span>
+          </div>
+        </div>
+
+        <div class="stage-wrap">
+          <canvas id="game" width="1280" height="720" aria-label="Playable game canvas"></canvas>
+          <div class="overlay" id="overlay">
+            <div class="overlay-panel">
+              <h2 id="overlay-title">Ready to ship?</h2>
+              <p id="overlay-copy">Grab all four artifacts, then reach the DevDay gate.</p>
+              <button id="start-button" type="button">Start run</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="lower">
+          <div class="checklist" aria-label="Artifacts">
+            <span data-item="context">Context</span>
+            <span data-item="tests">Tests</span>
+            <span data-item="image">Image Assets</span>
+            <span data-item="link">Playable Link</span>
+          </div>
+          <div class="controls">
+            <button id="restart" type="button" aria-label="Restart">Restart</button>
+            <button id="mute" type="button" aria-label="Toggle sound">Sound on</button>
+          </div>
+        </div>
+
+        <p class="built">
+          Built by Yurii Bakurov with Codex, GPT-5.5 Pro for concept critique, and Image Gen for the game art.
+        </p>
+      </section>
+    </main>
+    <script src="./app.js" defer></script>
+  </body>
+</html>
