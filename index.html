@@ -18,7 +18,7 @@
     <title>Ship the Demo</title>
     <link rel="preload" href="./assets/devday-lab-bg.png" as="image">
     <link rel="preload" href="./assets/sprites.png" as="image">
-    <link rel="stylesheet" href="./styles.css?v=20260623-game7">
+    <link rel="stylesheet" href="./styles.css?v=20260623-game9">
   </head>
   <body>
     <main class="app" aria-label="Ship the Demo game">
@@ -32,7 +32,7 @@
           <div class="status" aria-label="Run status">
             <span class="stat">
               <span>Time</span>
-              <strong id="timer">01:50</strong>
+              <strong id="timer">01:30</strong>
             </span>
             <span class="stat">
               <span>Score</span>
@@ -55,7 +55,9 @@
             <div class="overlay-panel">
               <h2 id="overlay-title">Make the room believe.</h2>
               <p id="overlay-copy">You have 90 seconds to collect context, tests, art, and a playable link before scope creep drains the sprint.</p>
+              <p class="how-to" id="overlay-howto">Desktop: WASD/arrows. Phone: tap/drag. Dash or Space = shielded burst.</p>
               <button id="start-button" type="button">Start 90-sec sprint</button>
+              <button id="copy-build" class="secondary-action is-hidden" type="button">Copy X build note</button>
             </div>
           </div>
         </div>
@@ -87,6 +89,6 @@
         </p>
       </section>
     </main>
-    <script src="./app.js?v=20260623-game7" defer></script>
+    <script src="./app.js?v=20260623-game9" defer></script>
   </body>
 </html>

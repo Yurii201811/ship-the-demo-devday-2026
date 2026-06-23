@@ -214,6 +214,16 @@ canvas {
   line-height: 1.45;
 }
 
+.how-to {
+  color: rgba(242, 247, 241, 0.9) !important;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.how-to.is-hidden {
+  display: none;
+}
+
 .overlay-panel button,
 .controls button {
   cursor: pointer;
@@ -230,6 +240,17 @@ canvas {
 
 .overlay-panel button {
   margin-top: 18px;
+}
+
+.overlay-panel .secondary-action {
+  margin-top: 10px;
+  border-color: rgba(57, 231, 255, 0.34);
+  background: linear-gradient(180deg, rgba(24, 47, 54, 0.92), rgba(8, 18, 21, 0.92));
+  box-shadow: inset 0 0 20px rgba(57, 231, 255, 0.1);
+}
+
+.overlay-panel .secondary-action.is-hidden {
+  display: none;
 }
 
 .controls button:disabled {
@@ -371,7 +392,8 @@ canvas {
   }
 
   .title-block p,
-  .built {
+  .built,
+  .how-to {
     font-size: 0.8rem;
   }
 
@@ -389,6 +411,16 @@ canvas {
   .stage-wrap {
     min-height: 300px;
     height: min(47dvh, 460px);
+  }
+
+  .overlay {
+    padding: 12px;
+    overflow-y: auto;
+  }
+
+  .overlay-panel {
+    max-height: 100%;
+    overflow-y: auto;
   }
 
   .mission span {

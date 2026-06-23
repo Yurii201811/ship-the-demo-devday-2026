@@ -11,6 +11,8 @@ const overlay = document.querySelector("#overlay");
 const overlayTitle = document.querySelector("#overlay-title");
 const overlayCopy = document.querySelector("#overlay-copy");
 const startButton = document.querySelector("#start-button");
+const overlayHowto = document.querySelector("#overlay-howto");
+const copyBuildButton = document.querySelector("#copy-build");
 const restartButton = document.querySelector("#restart");
 const muteButton = document.querySelector("#mute");
 const dashButton = document.querySelector("#dash");
@@ -23,6 +25,7 @@ sprites.src = "./assets/sprites.png";
 
 const BASE = { w: 1280, h: 720 };
 const RUN_SECONDS = 90;
+const BEST_SCORE_KEY = "ship-the-demo-best-score";
 const spriteCols = 4;
 const spriteRows = 2;
 const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -115,6 +118,7 @@ let activePointerId = null;
 let lastTime = 0;
 let muted = false;
 let audioCtx = null;
+let bestScore = readBestScore();
 
 function scheduleFrame(callback) {
   if (typeof window.requestAnimationFrame === "function") {
@@ -126,6 +130,28 @@ function scheduleFrame(callback) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function readBestScore() {
+  try {
+    const value = Number(window.localStorage.getItem(BEST_SCORE_KEY));
+    return Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function saveBestScore(score) {
+  bestScore = Math.max(bestScore, Math.round(score));
+  try {
+    window.localStorage.setItem(BEST_SCORE_KEY, String(bestScore));
+  } catch {
+    // Best score is a convenience; gameplay should keep working without storage.
+  }
+}
+
+function formatScore(score) {
+  return String(Math.max(0, Math.round(score))).padStart(4, "0");
 }
 
 function lerp(a, b, t) {
@@ -211,6 +237,7 @@ function resetState() {
     "Make the room believe.",
     "You have 90 seconds to collect context, tests, art, and a playable link before scope creep drains the sprint.",
     "Start 90-sec sprint",
+    "Desktop: WASD/arrows. Phone: tap/drag. Dash or Space = shielded burst.",
   );
 }
 
@@ -218,10 +245,14 @@ function announce(message) {
   liveStatusEl.textContent = message;
 }
 
-function showOverlay(title, copy, button) {
+function showOverlay(title, copy, button, howTo = "") {
   overlayTitle.textContent = title;
   overlayCopy.textContent = copy;
   startButton.textContent = button;
+  overlayHowto.textContent = howTo;
+  overlayHowto.classList.toggle("is-hidden", !howTo);
+  copyBuildButton.classList.add("is-hidden");
+  copyBuildButton.textContent = "Copy X build note";
   overlay.classList.remove("is-hidden");
 }
 
@@ -247,7 +278,7 @@ function syncHud() {
   const mins = String(Math.floor(remaining / 60)).padStart(2, "0");
   const secs = String(remaining % 60).padStart(2, "0");
   timerEl.textContent = `${mins}:${secs}`;
-  scoreEl.textContent = String(Math.max(0, Math.round(state.score))).padStart(4, "0");
+  scoreEl.textContent = formatScore(state.score);
   focusEl.textContent = `${Math.round(state.focus)}%`;
   heatFillEl.style.width = `${Math.round(state.heat)}%`;
 
@@ -518,7 +549,12 @@ function drawGame() {
   ctx.fillStyle = "rgba(242, 247, 241, 0.94)";
   ctx.shadowColor = "#000";
   ctx.shadowBlur = 12;
-  ctx.fillText(state.message, responsiveSize(30, 14, 30), world.h - responsiveSize(30, 18, 30));
+  ctx.fillText(
+    state.message,
+    responsiveSize(30, 14, 30),
+    world.h - responsiveSize(30, 18, 30),
+    world.w - responsiveSize(60, 28, 60),
+  );
   ctx.restore();
 
   ctx.restore();
@@ -622,6 +658,7 @@ function winRun() {
   const timeBonus = Math.max(0, Math.round((RUN_SECONDS - state.elapsed) * 12));
   const focusBonus = Math.round(state.focus * 7);
   state.score += timeBonus + focusBonus + 1200;
+  saveBestScore(state.score);
   state.message = "Demo launched. The gate opened because the proof was playable.";
   announce("Demo shipped. The gate opened because the proof was playable.");
   const gatePoint = pct(gate);
@@ -629,16 +666,19 @@ function winRun() {
   ping(980, 0.13);
   showOverlay(
     "Demo shipped.",
-    `Score ${String(Math.round(state.score)).padStart(4, "0")}. Static HTML/canvas, GPT-5.5 Pro critique, Codex implementation, and Image Gen art.`,
+    `Score ${formatScore(state.score)}. Best ${formatScore(bestScore)}. Built as static HTML/canvas with Codex, GPT-5.5 Pro critique, and Image Gen art.`,
     "Run it again",
+    "Copy the build note if you want the exact contest-ready wording for the X reply.",
   );
+  copyBuildButton.classList.remove("is-hidden");
 }
 
 function loseRun(title, copy) {
   state.mode = "lost";
+  saveBestScore(state.score);
   state.message = copy;
   announce(copy);
-  showOverlay(title, copy, "Try again");
+  showOverlay(title, `${copy} Score ${formatScore(state.score)}. Best ${formatScore(bestScore)}.`, "Try again");
   ping(180, 0.09);
 }
 
@@ -692,10 +732,13 @@ function update(dt) {
     const point = hazardPosition(hazard);
     if (distance(state.player, point) < point.r + state.player.r) {
       if (state.shield > 0) {
-        state.score += 35;
-        state.message = "The dash slipped past a scope trap.";
-        announce("Dash slipped past a scope trap.");
-        spawnBurst(point.x, point.y, "#ffd84f", 8);
+        if (state.hitCooldown <= 0) {
+          state.score += 35;
+          state.hitCooldown = 0.18;
+          state.message = "The dash slipped past a scope trap.";
+          announce("Dash slipped past a scope trap.");
+          spawnBurst(point.x, point.y, "#ffd84f", 8);
+        }
         return;
       }
 
@@ -845,6 +888,21 @@ dashButton.addEventListener("click", dash);
 muteButton.addEventListener("click", () => {
   muted = !muted;
   muteButton.textContent = muted ? "Sound off" : "Sound on";
+});
+
+copyBuildButton.addEventListener("click", async () => {
+  const note = [
+    "#OpenAIDevDay2026",
+    "Playable: https://yurii201811.github.io/ship-the-demo-devday-2026/",
+    "Built as a static HTML/canvas game with Codex, GPT-5.5 Pro critique/tuning, and Image Gen art.",
+  ].join("\n");
+  try {
+    await navigator.clipboard.writeText(note);
+    copyBuildButton.textContent = "Copied";
+    announce("Build note copied.");
+  } catch {
+    copyBuildButton.textContent = "Copy unavailable";
+  }
 });
 
 resizeCanvas();
