@@ -3,95 +3,164 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Ship the Demo: a five-level playable OpenAI DevDay 2026 ticket contest entry by Yurii Bakurov.">
+    <meta name="theme-color" content="#07100c">
+    <meta name="description" content="Ship the Demo: a five-stage playable OpenAI DevDay 2026 ticket contest entry by Yurii Bakurov.">
     <meta property="og:title" content="Ship the Demo">
-    <meta property="og:description" content="Play a five-level HTML/canvas sprint: lock context, tests, Image Gen art, and a playable link before launching the demo.">
+    <meta property="og:description" content="Play a five-stage HTML/canvas sprint: lock context, tests, Image Gen art, and a playable link before launching the demo.">
     <meta property="og:type" content="website">
-    <meta property="og:url" content="https://yurii201811.github.io/ship-the-demo-devday-2026/?v=game11-card9">
+    <meta property="og:url" content="https://yurii201811.github.io/ship-the-demo-devday-2026/?v=game12-card9">
     <meta property="og:image" content="https://yurii201811.github.io/ship-the-demo-devday-2026/assets/og-ship-the-demo-v9.png">
     <meta property="og:image:secure_url" content="https://yurii201811.github.io/ship-the-demo-devday-2026/assets/og-ship-the-demo-v9.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="Ship the Demo: five-level HTML/canvas sprint built with Codex, GPT-5.5 Pro critique, and Image Gen art.">
+    <meta property="og:image:alt" content="Ship the Demo: five-stage HTML/canvas sprint built with Codex, GPT-5.5 Pro critique, and Image Gen art.">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Ship the Demo">
-    <meta name="twitter:description" content="Play a five-level HTML/canvas sprint: lock context, tests, Image Gen art, and a playable link before launching the demo.">
+    <meta name="twitter:description" content="Play a five-stage HTML/canvas sprint: lock context, tests, Image Gen art, and a playable link before launching the demo.">
     <meta name="twitter:image" content="https://yurii201811.github.io/ship-the-demo-devday-2026/assets/og-ship-the-demo-v9.png">
-    <meta name="twitter:image:alt" content="Ship the Demo: five-level HTML/canvas sprint built with Codex, GPT-5.5 Pro critique, and Image Gen art.">
-    <title>Ship the Demo</title>
+    <meta name="twitter:image:alt" content="Ship the Demo: five-stage HTML/canvas sprint built with Codex, GPT-5.5 Pro critique, and Image Gen art.">
+    <title>Ship the Demo — OpenAI DevDay 2026</title>
+    <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
     <link rel="preload" href="./assets/devday-lab-bg.png" as="image">
     <link rel="preload" href="./assets/sprites.png" as="image">
-    <link rel="stylesheet" href="./styles.css?v=20260623-game11">
+    <link rel="stylesheet" href="./styles.css?v=20260714-game12">
   </head>
   <body>
+    <a class="skip-link" href="#game">Skip to the game</a>
+
     <main class="app" aria-label="Ship the Demo game">
-      <section class="shell">
-        <div class="topbar">
+      <section class="shell" aria-labelledby="game-title">
+        <header class="topbar">
           <div class="title-block">
-            <h1>Ship the Demo</h1>
-            <p>Five rising levels. Four build pieces. One launch gate. Scope creep is already moving.</p>
+            <p class="eyebrow"><span aria-hidden="true"></span> OpenAI DevDay 2026 entry</p>
+            <div class="title-row">
+              <h1 id="game-title">Ship the Demo</h1>
+              <p class="best-chip">Personal best <strong id="best-score">0000</strong></p>
+            </div>
+            <p class="tagline">Build the proof. Outrun scope creep. Make the room believe.</p>
           </div>
 
-          <div class="status" aria-label="Run status">
-            <span class="stat">
-              <span>Time</span>
-              <strong id="timer">01:30</strong>
-            </span>
-            <span class="stat">
-              <span>Score</span>
-              <strong id="score">0000</strong>
-            </span>
-            <span class="stat">
-              <span>Focus</span>
-              <strong id="focus">100%</strong>
-            </span>
-            <span class="heat">
-              <span>Demo heat</span>
-              <i><b id="heat-fill"></b></i>
-            </span>
-          </div>
-        </div>
+          <dl class="status" aria-label="Live run status">
+            <div class="stat">
+              <dt>Time</dt>
+              <dd><time id="timer">01:30</time></dd>
+            </div>
+            <div class="stat">
+              <dt>Score</dt>
+              <dd id="score">0000</dd>
+            </div>
+            <div class="stat">
+              <dt>Combo</dt>
+              <dd id="combo">×1.00</dd>
+            </div>
+            <div class="stat focus-stat" role="progressbar" aria-label="Focus" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
+              <dt>Focus</dt>
+              <dd id="focus">100%</dd>
+            </div>
+            <div class="heat" role="progressbar" aria-label="Demo heat" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <dt>Demo heat</dt>
+              <dd><span class="heat-track"><b id="heat-fill"></b></span></dd>
+            </div>
+          </dl>
+        </header>
 
         <div class="stage-wrap">
-          <canvas id="game" aria-label="Playable game canvas"></canvas>
-          <div class="overlay" id="overlay">
+          <div class="stage-hud" aria-hidden="true">
+            <span id="stage-level">01 / 05 · Briefing</span>
+            <span>Route <strong id="route-progress">0 / 5</strong></span>
+          </div>
+
+          <canvas
+            id="game"
+            tabindex="0"
+            aria-label="Playable Ship the Demo game board"
+            aria-describedby="game-instructions mission-copy live-status"
+          >
+            Ship the Demo is a keyboard and pointer game. Use WASD or arrow keys to move, Space to dash, and P to pause. Collect each highlighted build piece, then reach the launch gate.
+          </canvas>
+
+          <div
+            class="overlay"
+            id="overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="overlay-title"
+            aria-describedby="overlay-copy game-instructions"
+          >
             <div class="overlay-panel">
+              <p class="overlay-kicker" id="overlay-kicker">Field test // 90 seconds</p>
               <h2 id="overlay-title">Make the room believe.</h2>
-              <p id="overlay-copy">You have 90 seconds to clear five rising levels: collect context, tests, art, and a playable link before scope creep drains the sprint.</p>
-              <p class="how-to" id="overlay-howto">Hold targets to lock them. Desktop: WASD/arrows. Phone: tap/drag. Dash/Space: shielded burst.</p>
-              <button id="start-button" type="button">Start 90-sec sprint</button>
-              <button id="copy-build" class="secondary-action is-hidden" type="button">Copy X build note</button>
+              <p id="overlay-copy">Lock four build pieces, survive final review, and launch before time, focus, or demo heat runs out.</p>
+
+              <div class="control-grid" id="overlay-controls" aria-label="How to play">
+                <div><kbd>WASD</kbd><span>Move</span></div>
+                <div><kbd>Space</kbd><span>Dash + parry</span></div>
+                <div><kbd>P</kbd><span>Pause</span></div>
+                <div><kbd>Tap / drag</kbd><span>Move on touch</span></div>
+              </div>
+
+              <p class="how-to" id="game-instructions">Hold the glowing target to lock it. Dash through a hazard for one parry bonus. Red hazards drain focus and add heat.</p>
+
+              <section class="results is-hidden" id="results" aria-label="Run results">
+                <div class="result-hero">
+                  <div>
+                    <span>Run grade</span>
+                    <strong id="result-rank">—</strong>
+                  </div>
+                  <div>
+                    <span>Final score</span>
+                    <strong id="result-score">0000</strong>
+                  </div>
+                </div>
+                <dl class="result-breakdown">
+                  <div><dt>Build score</dt><dd id="result-build">+0000</dd></div>
+                  <div><dt>Speed</dt><dd id="result-speed">+0000</dd></div>
+                  <div><dt>Focus</dt><dd id="result-focus">+0000</dd></div>
+                </dl>
+                <p id="result-note">Route complete.</p>
+              </section>
+
+              <div class="overlay-actions">
+                <button id="start-button" type="button">Start the sprint</button>
+                <button id="share-result" class="secondary-action is-hidden" type="button">Share result</button>
+                <button id="copy-build" class="secondary-action is-hidden" type="button">Copy build note</button>
+              </div>
             </div>
           </div>
         </div>
 
         <div class="lower">
-          <div class="mission" aria-label="Current mission">
-            <strong id="mission-title">Context first</strong>
+          <section class="mission" aria-label="Current mission">
+            <span class="mission-label">Current objective</span>
+            <strong id="mission-title">L1: Context first</strong>
             <span id="mission-copy">Find the real problem before the sprint gets loud.</span>
-          </div>
+          </section>
 
-          <div class="checklist" aria-label="Artifacts">
-            <span data-item="context">Context</span>
-            <span data-item="tests">Tests</span>
-            <span data-item="image">Image Assets</span>
-            <span data-item="link">Playable Link</span>
-          </div>
+          <ol class="checklist" aria-label="Build route">
+            <li data-item="context"><span class="step">01</span><span>Context</span><em>Current</em></li>
+            <li data-item="tests"><span class="step">02</span><span>Tests</span><em>Locked</em></li>
+            <li data-item="image"><span class="step">03</span><span>Image assets</span><em>Locked</em></li>
+            <li data-item="link"><span class="step">04</span><span>Playable link</span><em>Locked</em></li>
+          </ol>
 
-          <div class="controls">
+          <div class="controls" role="group" aria-label="Game controls">
             <button id="dash" type="button" aria-label="Dash">Dash</button>
-            <button id="restart" type="button" aria-label="Restart">Restart</button>
-            <button id="mute" type="button" aria-label="Toggle sound">Sound on</button>
+            <button id="pause" type="button" aria-label="Pause game" disabled>Pause</button>
+            <button id="restart" type="button" aria-label="Restart game">Restart</button>
+            <button id="mute" type="button" aria-label="Toggle sound" aria-pressed="false">Sound on</button>
           </div>
         </div>
 
         <p id="live-status" class="sr-only" aria-live="polite"></p>
 
-        <p class="built">
-          Built by Yurii Bakurov as a static HTML/canvas game with Codex, GPT-5.5 Pro for critique, and Image Gen art.
-        </p>
+        <footer class="built">
+          <span>Designed and built by Yurii Bakurov with Codex, GPT-5.5 Pro critique, and Image Gen art.</span>
+          <a href="https://github.com/Yurii201811/ship-the-demo-devday-2026" target="_blank" rel="noreferrer">View source <span aria-hidden="true">↗</span></a>
+        </footer>
       </section>
     </main>
-    <script src="./app.js?v=20260623-game11" defer></script>
+
+    <noscript>This game needs JavaScript enabled to run.</noscript>
+    <script src="./app.js?v=20260714-game12" defer></script>
   </body>
 </html>

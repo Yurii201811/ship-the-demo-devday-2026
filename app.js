@@ -2,22 +2,38 @@ const canvas = document.querySelector("#game");
 const ctx = canvas.getContext("2d");
 const timerEl = document.querySelector("#timer");
 const scoreEl = document.querySelector("#score");
+const comboEl = document.querySelector("#combo");
 const focusEl = document.querySelector("#focus");
 const heatFillEl = document.querySelector("#heat-fill");
 const heatBoxEl = document.querySelector(".heat");
+const focusBoxEl = document.querySelector(".focus-stat");
+const bestScoreEl = document.querySelector("#best-score");
+const stageLevelEl = document.querySelector("#stage-level");
+const routeProgressEl = document.querySelector("#route-progress");
 const missionTitleEl = document.querySelector("#mission-title");
 const missionCopyEl = document.querySelector("#mission-copy");
 const liveStatusEl = document.querySelector("#live-status");
 const overlay = document.querySelector("#overlay");
+const overlayKicker = document.querySelector("#overlay-kicker");
 const overlayTitle = document.querySelector("#overlay-title");
 const overlayCopy = document.querySelector("#overlay-copy");
 const startButton = document.querySelector("#start-button");
-const overlayHowto = document.querySelector("#overlay-howto");
+const overlayControls = document.querySelector("#overlay-controls");
+const gameInstructionsEl = document.querySelector("#game-instructions");
+const resultsEl = document.querySelector("#results");
+const resultRankEl = document.querySelector("#result-rank");
+const resultScoreEl = document.querySelector("#result-score");
+const resultBuildEl = document.querySelector("#result-build");
+const resultSpeedEl = document.querySelector("#result-speed");
+const resultFocusEl = document.querySelector("#result-focus");
+const resultNoteEl = document.querySelector("#result-note");
+const shareResultButton = document.querySelector("#share-result");
 const copyBuildButton = document.querySelector("#copy-build");
 const restartButton = document.querySelector("#restart");
 const muteButton = document.querySelector("#mute");
 const dashButton = document.querySelector("#dash");
-const checklistEls = [...document.querySelectorAll(".checklist span")];
+const pauseButton = document.querySelector("#pause");
+const checklistEls = [...document.querySelectorAll(".checklist [data-item]")];
 
 const bg = new Image();
 bg.src = "./assets/devday-lab-bg.png";
@@ -26,13 +42,13 @@ sprites.src = "./assets/sprites.png";
 
 const BASE = { w: 1280, h: 720 };
 const RUN_SECONDS = 90;
-const BEST_SCORE_KEY = "ship-the-demo-best-score";
+const BEST_SCORE_KEY = "ship-the-demo-best-shipped-score-v2";
 const LEVELS = [
-  { name: "Briefing", hazards: 3, speed: 0.94, heat: 0.68, radius: 0.95 },
-  { name: "Trust", hazards: 4, speed: 1.1, heat: 0.98, radius: 1 },
-  { name: "Style", hazards: 5, speed: 1.24, heat: 1.32, radius: 1.04 },
-  { name: "Pressure", hazards: 5, speed: 1.42, heat: 1.72, radius: 1.08 },
-  { name: "Launch", hazards: 5, speed: 1.62, heat: 2.08, radius: 1.12 },
+  { name: "Briefing", hazards: 3, speed: 0.92, heat: 0.64, radius: 0.94 },
+  { name: "Verification", hazards: 4, speed: 1.06, heat: 0.96, radius: 0.98 },
+  { name: "Style pass", hazards: 5, speed: 1.2, heat: 1.28, radius: 1.02 },
+  { name: "Delivery", hazards: 5, speed: 1.38, heat: 1.68, radius: 1.07 },
+  { name: "Final review", hazards: 6, speed: 1.62, heat: 2.12, radius: 1.12 },
 ];
 const spriteCols = 4;
 const spriteRows = 2;
@@ -56,6 +72,8 @@ const missions = [
     title: "Context first",
     copy: "Find the real problem before the sprint gets loud.",
     story: "Context locked. The model finally has the brief.",
+    action: "Hold to lock",
+    hold: "Hold steady. Context is resolving.",
     x: 0.24,
     y: 0.36,
     value: 360,
@@ -65,8 +83,10 @@ const missions = [
     key: "tests",
     label: "Tests",
     title: "Make it trustworthy",
-    copy: "Bring the checks online while the room pressure rises.",
+    copy: "Defend the lock long enough to bring the checks online.",
     story: "Tests green. One crash shield armed.",
+    action: "Hold to verify",
+    hold: "Keep the test lock alive under pressure.",
     x: 0.58,
     y: 0.52,
     value: 430,
@@ -76,8 +96,10 @@ const missions = [
     key: "image",
     label: "Image Assets",
     title: "Give it a soul",
-    copy: "Grab Image Gen art so the demo looks alive, not procedural.",
+    copy: "Track the moving Image Gen asset and lock the style pass.",
     story: "Image Gen assets landed. Style boost online.",
+    action: "Track + hold",
+    hold: "Track the asset until the style pass locks.",
     x: 0.32,
     y: 0.74,
     value: 520,
@@ -87,8 +109,10 @@ const missions = [
     key: "link",
     label: "Playable Link",
     title: "Make it real",
-    copy: "Ship the public link before scope creep swallows the sprint.",
+    copy: "Catch the moving handoff and make the playable link real.",
     story: "Playable link live. The gate is open.",
+    action: "Deliver + hold",
+    hold: "Stay with the handoff until the link is live.",
     x: 0.73,
     y: 0.74,
     value: 660,
@@ -107,6 +131,7 @@ const hazardDefs = [
   { x: 0.68, y: 0.48, ax: 0.08, ay: 0.12, speed: 1.32, phase: 2.6 },
   { x: 0.82, y: 0.56, ax: 0.07, ay: 0.05, speed: 1.55, phase: 3.8 },
   { x: 0.20, y: 0.61, ax: 0.08, ay: 0.08, speed: 1.42, phase: 4.7 },
+  { x: 0.57, y: 0.44, ax: 0.18, ay: 0.13, speed: 1.7, phase: 5.4 },
 ];
 
 const insightDefs = [
@@ -156,6 +181,18 @@ function saveBestScore(score) {
   } catch {
     // Best score is a convenience; gameplay should keep working without storage.
   }
+}
+
+function gradeForScore(score) {
+  if (score >= 6600) return "S";
+  if (score >= 5400) return "A";
+  if (score >= 4300) return "B";
+  if (score >= 3300) return "C";
+  return "D";
+}
+
+function formatBonus(value) {
+  return `+${formatScore(value)}`;
 }
 
 function formatScore(score) {
@@ -227,7 +264,7 @@ function resetState() {
     captureKind: null,
     nextIndex: 0,
     collected: Object.fromEntries(missions.map((item) => [item.key, false])),
-    player: { x: start.x, y: start.y, vx: 0, vy: 0, r: playerRadius() },
+    player: { x: start.x, y: start.y, vx: 0, vy: 0, lastDx: -0.28, lastDy: -0.96, r: playerRadius() },
     particles: [],
     floaters: [],
     ripples: [],
@@ -236,6 +273,8 @@ function resetState() {
     dashCooldown: 0,
     dashTime: 0,
     shield: 0,
+    parryReady: false,
+    hazardContacts: new Set(),
     hitCooldown: 0,
     levelFlash: 0,
     hazardRush: 0,
@@ -243,48 +282,119 @@ function resetState() {
     shake: 0,
     flash: 0,
     gatePulse: 0,
+    finalScore: 0,
+    rank: "",
   };
   lastTime = 0;
   syncHud();
   announce("Ready. Collect the four build pieces before the sprint overheats.");
-  showOverlay(
-    "Make the room believe.",
-    "You have 90 seconds to clear five rising levels: collect context, tests, art, and a playable link before scope creep drains the sprint.",
-    "Start 90-sec sprint",
-    "Hold targets to lock them. Desktop: WASD/arrows. Phone: tap/drag. Dash/Space: shielded burst.",
-  );
+  showOverlay({
+    kicker: "Field test // 90 seconds",
+    title: "Make the room believe.",
+    copy: "Lock four build pieces, survive final review, and launch before time, focus, or demo heat runs out.",
+    button: "Start the sprint",
+    howTo: "Hold the glowing target to lock it. Dash through a hazard for one parry bonus. Red hazards drain focus and add heat.",
+    showControls: true,
+  });
 }
 
 function announce(message) {
   liveStatusEl.textContent = message;
 }
 
-function showOverlay(title, copy, button, howTo = "") {
+function showOverlay({ kicker, title, copy, button, howTo = "", showControls = false, showResults = false }) {
+  overlayKicker.textContent = kicker;
   overlayTitle.textContent = title;
   overlayCopy.textContent = copy;
   startButton.textContent = button;
-  overlayHowto.textContent = howTo;
-  overlayHowto.classList.toggle("is-hidden", !howTo);
+  gameInstructionsEl.textContent = howTo;
+  gameInstructionsEl.classList.toggle("is-hidden", !howTo);
+  overlayControls.classList.toggle("is-hidden", !showControls);
+  resultsEl.classList.toggle("is-hidden", !showResults);
+  overlay.classList.toggle("has-results", showResults);
+  shareResultButton.classList.add("is-hidden");
+  shareResultButton.textContent = "Share result";
   copyBuildButton.classList.add("is-hidden");
   copyBuildButton.textContent = "Copy X build note";
   overlay.classList.remove("is-hidden");
+  overlay.setAttribute("aria-hidden", "false");
+  window.setTimeout(() => {
+    if (!overlay.classList.contains("is-hidden")) startButton.focus({ preventScroll: true });
+  }, 0);
 }
 
 function hideOverlay() {
   overlay.classList.add("is-hidden");
+  overlay.setAttribute("aria-hidden", "true");
+  canvas.focus({ preventScroll: true });
 }
 
 function startRun() {
   if (!state) resetState();
+  if (state.mode === "paused") {
+    state.mode = "playing";
+    lastTime = 0;
+    state.message = "Sprint resumed. The route is still live.";
+    announce(state.message);
+    syncHud();
+    hideOverlay();
+    ping(620, 0.04);
+    return;
+  }
   if (state.mode === "won" || state.mode === "lost") resetState();
   state.mode = "playing";
+  state.levelFlash = 0.85;
+  state.message = "Sprint live. Move to Context and hold the lock.";
+  announce(state.message);
+  lastTime = 0;
   syncHud();
   hideOverlay();
   ping(560, 0.05);
 }
 
+function pauseRun(reason = "Take a breath. The clock is frozen until you resume.") {
+  if (!state || state.mode !== "playing") return;
+  state.mode = "paused";
+  keys.clear();
+  pointer = null;
+  activePointerId = null;
+  state.player.vx = 0;
+  state.player.vy = 0;
+  state.message = "Sprint paused.";
+  announce("Sprint paused. Activate Resume sprint when you are ready.");
+  showOverlay({
+    kicker: "Sprint paused",
+    title: "Hold the line.",
+    copy: reason,
+    button: "Resume sprint",
+    howTo: "Your score, focus, heat, and route are preserved.",
+  });
+  syncHud();
+}
+
+function togglePause() {
+  if (!state) return;
+  if (state.mode === "playing") pauseRun();
+  else if (state.mode === "paused") startRun();
+}
+
 function currentMission() {
   return missions[state.nextIndex] || null;
+}
+
+function missionPosition(item, index) {
+  const point = pct(item);
+  if (!state || index !== state.nextIndex || state.mode === "ready") return point;
+
+  if (item.key === "image") {
+    point.x += Math.sin(state.elapsed * 1.25) * world.w * 0.055;
+    point.y += Math.cos(state.elapsed * 0.92) * world.h * 0.035;
+  } else if (item.key === "link") {
+    point.x += Math.sin(state.elapsed * 0.88 + 1.2) * world.w * 0.062;
+    point.y += Math.sin(state.elapsed * 1.44) * world.h * 0.04;
+  }
+
+  return point;
 }
 
 function currentLevelIndex() {
@@ -308,8 +418,9 @@ function insightLabel(index) {
 }
 
 function captureSeconds(kind) {
-  const mobileFactor = world.w < 640 ? 0.78 : 1;
-  const base = kind === "gate" ? 0.72 : 0.34 + currentLevelIndex() * 0.08;
+  const mobileFactor = world.w < 640 ? 0.84 : 1;
+  const stageSeconds = [0.38, 0.82, 0.56, 0.68];
+  const base = kind === "gate" ? 0.95 : stageSeconds[currentLevelIndex()] ?? 0.56;
   return base * mobileFactor;
 }
 
@@ -327,7 +438,7 @@ function updateCapture(dt, point, radius, kind, complete) {
       state.captureProgress = 0;
     }
     state.captureProgress += dt;
-    state.message = kind === "gate" ? "Hold steady to launch." : "Hold steady to lock the build piece.";
+    state.message = kind === "gate" ? "Hold through final review to launch." : currentMission()?.hold || "Hold steady to lock the build piece.";
 
     if (state.captureProgress >= captureSeconds(kind)) {
       state.captureProgress = 0;
@@ -349,30 +460,47 @@ function syncHud() {
   const secs = String(remaining % 60).padStart(2, "0");
   timerEl.textContent = `${mins}:${secs}`;
   scoreEl.textContent = formatScore(state.score);
+  comboEl.textContent = `×${state.combo.toFixed(2)}`;
   focusEl.textContent = `${Math.round(state.focus)}%`;
+  bestScoreEl.textContent = formatScore(bestScore);
   heatFillEl.style.width = `${Math.round(state.heat)}%`;
   heatBoxEl.classList.toggle("is-hot", state.heat >= 70 || state.finalSurge);
+  heatBoxEl.setAttribute("aria-valuenow", String(Math.round(state.heat)));
+  focusBoxEl.setAttribute("aria-valuenow", String(Math.round(state.focus)));
 
   const mission = currentMission();
   missionTitleEl.textContent = mission ? `L${currentLevelIndex() + 1}: ${mission.title}` : "L5: Gate is live";
   missionCopyEl.textContent = mission ? mission.copy : "Everything is ready. Launch it before the sprint overheats.";
+  stageLevelEl.textContent = `${String(currentLevelIndex() + 1).padStart(2, "0")} / 05 · ${currentLevel().name}`;
+  routeProgressEl.textContent = `${state.mode === "won" ? 5 : Math.min(state.nextIndex, 4)} / 5`;
 
   checklistEls.forEach((el) => {
     const itemIndex = missions.findIndex((item) => item.key === el.dataset.item);
-    el.classList.toggle("is-done", Boolean(state.collected[el.dataset.item]));
-    el.classList.toggle("is-current", itemIndex === state.nextIndex);
+    const isDone = Boolean(state.collected[el.dataset.item]);
+    const isCurrent = itemIndex === state.nextIndex;
+    el.classList.toggle("is-done", isDone);
+    el.classList.toggle("is-current", isCurrent);
+    el.querySelector("em").textContent = isDone ? "Complete" : isCurrent ? "Current" : "Locked";
+    if (isCurrent) el.setAttribute("aria-current", "step");
+    else el.removeAttribute("aria-current");
   });
 
-  if (state.dashCooldown > 0) {
+  if (state.mode !== "playing") {
+    dashButton.disabled = true;
+    dashButton.textContent = "Dash";
+  } else if (state.dashCooldown > 0) {
     dashButton.disabled = true;
     dashButton.textContent = `${state.dashCooldown.toFixed(1)}s`;
   } else {
     dashButton.disabled = false;
     dashButton.textContent = state.shield > 0 ? "Shield" : "Dash";
   }
-  dashButton.classList.toggle("is-ready", state.dashCooldown <= 0 && state.shield <= 0);
+  dashButton.classList.toggle("is-ready", state.mode === "playing" && state.dashCooldown <= 0 && state.shield <= 0);
   dashButton.classList.toggle("is-cooling", state.dashCooldown > 0);
   dashButton.classList.toggle("is-shielded", state.shield > 0);
+  pauseButton.disabled = !["playing", "paused"].includes(state.mode);
+  pauseButton.textContent = state.mode === "paused" ? "Resume" : "Pause";
+  pauseButton.setAttribute("aria-label", state.mode === "paused" ? "Resume game" : "Pause game");
 }
 
 function drawImageCover(image, x, y, w, h) {
@@ -431,7 +559,7 @@ function drawBackground() {
 function drawRoute() {
   const points = [
     pct({ x: 0.39, y: 0.84 }),
-    ...missions.map(pct),
+    ...missions.map((item, index) => missionPosition(item, index)),
     pct(gate),
   ];
 
@@ -466,7 +594,7 @@ function drawRoute() {
 function drawLabel(text, x, y, color, alpha = 1) {
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.font = `800 ${clamp(world.unit * 0.035, 13, 18)}px Inter, system-ui, sans-serif`;
+  ctx.font = `800 ${clamp(world.unit * 0.035, 13, 18)}px "Arial Narrow", system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.shadowColor = "#000";
@@ -547,7 +675,7 @@ function drawLevelBanner() {
   roundedRectPath(x, y, width, height, 8);
   ctx.fill();
   ctx.stroke();
-  ctx.font = `850 ${clamp(world.unit * 0.035, 13, 19)}px Inter, system-ui, sans-serif`;
+  ctx.font = `850 ${clamp(world.unit * 0.035, 13, 19)}px "Arial Narrow", system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#f2f7f1";
@@ -587,7 +715,7 @@ function drawGame() {
   const t = state.elapsed;
   const pickupSize = responsiveSize(112, 64, 118);
   missions.forEach((item, index) => {
-    const point = pct(item);
+    const point = missionPosition(item, index);
     const isCollected = state.collected[item.key];
     const isCurrent = index === state.nextIndex;
     const isLocked = index > state.nextIndex;
@@ -599,7 +727,7 @@ function drawGame() {
       if (isCurrent) drawCaptureArc(point.x, point.y + bob, pickupSize * 0.6, item.color, "mission");
       drawSprite(item.key, point.x, point.y + bob, pickupSize, alpha);
       drawLabel(item.label, point.x, point.y + pickupSize * 0.72 + bob, isCurrent ? item.color : "rgba(242,247,241,0.58)", alpha);
-      if (isCurrent) drawLabel("Hold to lock", point.x, point.y - pickupSize * 0.66 + bob, "#f2f7f1", 0.92);
+      if (isCurrent) drawLabel(item.action, point.x, point.y - pickupSize * 0.66 + bob, "#f2f7f1", 0.92);
     } else {
       drawSprite("spark", point.x, point.y + bob, pickupSize * 0.44, 0.55);
     }
@@ -655,7 +783,7 @@ function drawGame() {
   state.floaters.forEach((p) => {
     ctx.save();
     ctx.globalAlpha = p.life;
-    ctx.font = `800 ${clamp(world.unit * 0.034, 13, 19)}px Inter, system-ui, sans-serif`;
+    ctx.font = `800 ${clamp(world.unit * 0.034, 13, 19)}px "Arial Narrow", system-ui, sans-serif`;
     ctx.textAlign = "center";
     ctx.shadowColor = "#000";
     ctx.shadowBlur = 10;
@@ -682,7 +810,7 @@ function drawGame() {
   drawSprite("player", p.x, p.y, playerSize, state.hitCooldown > 0 ? 0.62 : 1, angle);
 
   ctx.save();
-  ctx.font = `760 ${clamp(world.unit * 0.032, 13, 18)}px Inter, system-ui, sans-serif`;
+  ctx.font = `760 ${clamp(world.unit * 0.032, 13, 18)}px "Arial Narrow", system-ui, sans-serif`;
   ctx.fillStyle = "rgba(242, 247, 241, 0.94)";
   ctx.shadowColor = "#000";
   ctx.shadowBlur = 12;
@@ -723,11 +851,35 @@ function distance(a, b) {
 
 function dash() {
   if (!state || state.mode !== "playing" || state.dashCooldown > 0) return;
-  state.dashTime = 0.24;
-  state.dashCooldown = 1.4;
+  const p = state.player;
+  let dx = p.lastDx;
+  let dy = p.lastDy;
+
+  if (pointer) {
+    const pointerDx = pointer.x - p.x;
+    const pointerDy = pointer.y - p.y;
+    const pointerMag = Math.hypot(pointerDx, pointerDy);
+    if (pointerMag > 1) {
+      dx = pointerDx / pointerMag;
+      dy = pointerDy / pointerMag;
+    }
+  }
+
+  const mag = Math.hypot(dx, dy) || 1;
+  dx /= mag;
+  dy /= mag;
+  const impulse = responsiveSize(1180, 700, 1320);
+  p.lastDx = dx;
+  p.lastDy = dy;
+  p.vx = dx * impulse;
+  p.vy = dy * impulse;
+  state.dashTime = 0.22;
+  state.dashCooldown = 1.5;
   state.shield = 0.34;
-  state.message = "A clean dash buys one brave second.";
-  spawnBurst(state.player.x, state.player.y, "#ffd84f", 14);
+  state.parryReady = true;
+  state.message = "Dash live. One clean parry is armed.";
+  announce(state.message);
+  spawnBurst(p.x, p.y, "#ffd84f", 14);
   ping(860, 0.04);
   syncHud();
 }
@@ -755,14 +907,17 @@ function updateMovement(dt) {
   }
 
   const mag = Math.hypot(ax, ay);
-  const speed = responsiveSize(560, 300, 620) * (state.dashTime > 0 ? 2.15 : 1);
+  const speed = responsiveSize(540, 300, 610) * (state.dashTime > 0 ? 1.82 : 1);
 
   if (mag > 0) {
-    p.vx = (ax / mag) * speed;
-    p.vy = (ay / mag) * speed;
+    p.lastDx = ax / mag;
+    p.lastDy = ay / mag;
+    p.vx = p.lastDx * speed;
+    p.vy = p.lastDy * speed;
   } else {
-    p.vx *= 0.82;
-    p.vy *= 0.82;
+    const drag = Math.exp(-8.5 * dt);
+    p.vx *= drag;
+    p.vy *= drag;
   }
 
   p.x = clamp(p.x + p.vx * dt, p.r, world.w - p.r);
@@ -785,7 +940,12 @@ function collectMission(item, point) {
   state.levelStartedAt = state.elapsed;
   state.levelFlash = 1.15;
   state.hazardRush = 1.1;
-  if (state.nextIndex >= missions.length) state.shield = Math.max(state.shield, 1.2);
+  if (state.nextIndex >= missions.length) {
+    state.shield = Math.max(state.shield, 2.8);
+    state.heat = clamp(state.heat - 14, 0, 100);
+    state.finalSurge = true;
+    state.hazardRush = 1.45;
+  }
   if (item.key === "tests") state.shield = Math.max(state.shield, 1.45);
   if (item.key === "image") {
     state.dashTime = Math.max(state.dashTime, 0.32);
@@ -800,39 +960,80 @@ function collectMission(item, point) {
   ping(720 + state.streak * 70, 0.07);
 }
 
+function setResult({ rank, score, build, speed, focus, note }) {
+  resultRankEl.textContent = rank;
+  resultScoreEl.textContent = formatScore(score);
+  resultBuildEl.textContent = formatBonus(build);
+  resultSpeedEl.textContent = formatBonus(speed);
+  resultFocusEl.textContent = formatBonus(focus);
+  resultNoteEl.textContent = note;
+}
+
 function winRun() {
   state.mode = "won";
+  state.finalSurge = false;
+  const previousBest = bestScore;
+  const buildScore = Math.round(state.score) + 1200;
   const timeBonus = Math.max(0, Math.round((RUN_SECONDS - state.elapsed) * 12));
   const focusBonus = Math.round(state.focus * 7);
-  state.score += timeBonus + focusBonus + 1200;
+  state.score = buildScore + timeBonus + focusBonus;
+  state.finalScore = state.score;
+  state.rank = gradeForScore(state.score);
+  const isNewBest = state.score > previousBest;
   saveBestScore(state.score);
   state.message = "Demo launched. The gate opened because the proof was playable.";
   announce("Demo shipped. The gate opened because the proof was playable.");
+  setResult({
+    rank: state.rank,
+    score: state.score,
+    build: buildScore,
+    speed: timeBonus,
+    focus: focusBonus,
+    note: isNewBest ? `New personal best · shipped in ${state.elapsed.toFixed(1)} seconds.` : `Shipped in ${state.elapsed.toFixed(1)} seconds · best ${formatScore(bestScore)}.`,
+  });
   const gatePoint = pct(gate);
   spawnBurst(gatePoint.x, gatePoint.y, "#9aff76", 62);
   ping(980, 0.13);
-  showOverlay(
-    "Demo shipped.",
-    `Score ${formatScore(state.score)}. Best ${formatScore(bestScore)}. Cleared a five-level static HTML/canvas sprint built with Codex, GPT-5.5 Pro critique, and Image Gen art.`,
-    "Run it again",
-    "Copy the build note if you want the exact contest-ready wording for the X reply.",
-  );
+  showOverlay({
+    kicker: "Launch confirmed",
+    title: "Demo shipped.",
+    copy: "The proof held through final review. Your build is live, scored, and ready for one cleaner run.",
+    button: "Run it again",
+    showResults: true,
+  });
+  shareResultButton.classList.remove("is-hidden");
   copyBuildButton.classList.remove("is-hidden");
+  syncHud();
 }
 
 function loseRun(title, copy) {
   state.mode = "lost";
-  saveBestScore(state.score);
   state.message = copy;
   announce(copy);
-  showOverlay(title, `${copy} Score ${formatScore(state.score)}. Best ${formatScore(bestScore)}.`, "Try again");
+  setResult({
+    rank: "DNF",
+    score: state.score,
+    build: state.score,
+    speed: 0,
+    focus: 0,
+    note: bestScore > 0 ? `Best shipped score ${formatScore(bestScore)}. Failed runs do not replace it.` : "Ship one complete run to set a personal best.",
+  });
+  showOverlay({
+    kicker: "Run incomplete",
+    title,
+    copy,
+    button: "Try again",
+    howTo: "Use Dash to cross pressure safely, and collect blue insights to cool the sprint.",
+    showResults: true,
+  });
+  syncHud();
   ping(180, 0.09);
 }
 
-function update(dt) {
+function update(dt, wallDt = dt) {
   if (!state || state.mode !== "playing") return;
 
-  state.elapsed += dt;
+  state.elapsed += wallDt;
   state.hitCooldown = Math.max(0, state.hitCooldown - dt);
   state.dashCooldown = Math.max(0, state.dashCooldown - dt);
   state.dashTime = Math.max(0, state.dashTime - dt);
@@ -857,7 +1058,7 @@ function update(dt) {
 
   const mission = currentMission();
   if (mission) {
-    const point = pct(mission);
+    const point = missionPosition(mission, state.nextIndex);
     updateCapture(dt, point, responsiveSize(48, 32, 60), "mission", () => collectMission(mission, point));
   }
 
@@ -889,17 +1090,22 @@ function update(dt) {
     return;
   }
 
-  activeHazards().forEach((hazard) => {
+  const nextHazardContacts = new Set();
+  activeHazards().forEach((hazard, hazardIndex) => {
     const point = hazardPosition(hazard);
     if (distance(state.player, point) < point.r + state.player.r) {
+      nextHazardContacts.add(hazardIndex);
+      if (state.hazardContacts.has(hazardIndex)) return;
+
       if (state.shield > 0) {
         if (state.hitCooldown <= 0) {
-          const parry = state.dashTime > 0;
-          const parryScore = parry ? 95 : 35;
+          const parry = state.dashTime > 0 && state.parryReady;
+          const parryScore = parry ? 95 : 20;
+          if (parry) state.parryReady = false;
           state.score += parryScore;
           state.heat = clamp(state.heat - (parry ? 4 : 1), 0, 100);
           state.combo = clamp(state.combo + (parry ? 0.08 : 0.03), 1, 2.4);
-          state.hitCooldown = 0.18;
+          state.hitCooldown = 0.28;
           state.message = parry ? "Perfect dash parry. Scope pressure cooled." : "The shield slipped past a scope trap.";
           announce(state.message);
           spawnBurst(point.x, point.y, "#ffd84f", 8);
@@ -932,6 +1138,7 @@ function update(dt) {
       }
     }
   });
+  state.hazardContacts = nextHazardContacts;
 
   if (state.focus <= 0) {
     loseRun("Focus broke.", "The sprint got noisy. Tighten the route and try one more run.");
@@ -946,8 +1153,8 @@ function update(dt) {
       ...part,
       x: part.x + part.vx * dt,
       y: part.y + part.vy * dt,
-      vx: part.vx * 0.95,
-      vy: part.vy * 0.95,
+      vx: part.vx * Math.exp(-3.1 * dt),
+      vy: part.vy * Math.exp(-3.1 * dt),
       life: part.life - dt * 1.65,
     }))
     .filter((part) => part.life > 0);
@@ -965,9 +1172,10 @@ function update(dt) {
 
 function frame(now) {
   resizeCanvas();
-  const dt = Math.min(0.033, lastTime ? (now - lastTime) / 1000 : 0);
+  const wallDt = lastTime ? Math.max(0, (now - lastTime) / 1000) : 0;
+  const dt = Math.min(0.05, wallDt);
   lastTime = now;
-  update(dt);
+  update(dt, wallDt);
   drawGame();
   scheduleFrame(frame);
 }
@@ -1002,15 +1210,37 @@ function ping(freq, duration) {
 }
 
 window.addEventListener("keydown", (event) => {
-  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(event.code)) {
+  const interactiveTarget = event.target instanceof Element && event.target.closest("button, a, input, select, textarea");
+  if (event.code === "Space" && interactiveTarget) return;
+  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "KeyP"].includes(event.code)) {
     event.preventDefault();
   }
+  if ((event.code === "KeyP" || event.code === "Escape") && !event.repeat) {
+    togglePause();
+    return;
+  }
   if (event.code === "Space") {
+    if (event.repeat) return;
     if (state.mode === "playing") dash();
     else startRun();
     return;
   }
-  keys.add(event.code);
+  if (event.code === "Tab" && !overlay.classList.contains("is-hidden")) {
+    const focusable = [...overlay.querySelectorAll("button:not(:disabled):not(.is-hidden)")];
+    if (focusable.length > 0) {
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    return;
+  }
+  if (state.mode === "playing") keys.add(event.code);
 });
 
 window.addEventListener("keyup", (event) => keys.delete(event.code));
@@ -1048,21 +1278,50 @@ window.addEventListener("blur", () => {
   keys.clear();
   pointer = null;
   activePointerId = null;
+  if (state?.mode === "playing") pauseRun("The game paused when the window lost focus. Your run is safe.");
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && state?.mode === "playing") {
+    pauseRun("The game paused when this tab left the foreground. Your run is safe.");
+  }
 });
 
 startButton.addEventListener("click", startRun);
 restartButton.addEventListener("click", resetState);
 dashButton.addEventListener("click", dash);
+pauseButton.addEventListener("click", togglePause);
 muteButton.addEventListener("click", () => {
   muted = !muted;
   muteButton.textContent = muted ? "Sound off" : "Sound on";
+  muteButton.setAttribute("aria-pressed", String(muted));
+});
+
+shareResultButton.addEventListener("click", async () => {
+  const url = "https://yurii201811.github.io/ship-the-demo-devday-2026/";
+  const text = `I shipped the demo with a ${state.rank}-grade score of ${formatScore(state.finalScore)}. #OpenAIDevDay2026`;
+  try {
+    if (navigator.share) {
+      await navigator.share({ title: "Ship the Demo", text, url });
+      announce("Result shared.");
+    } else {
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      shareResultButton.textContent = "Result copied";
+      announce("Share text copied.");
+    }
+  } catch (error) {
+    if (error?.name !== "AbortError") {
+      shareResultButton.textContent = "Share unavailable";
+      announce("Sharing is unavailable in this browser.");
+    }
+  }
 });
 
 copyBuildButton.addEventListener("click", async () => {
   const note = [
     "#OpenAIDevDay2026",
     "Playable: https://yurii201811.github.io/ship-the-demo-devday-2026/",
-    "Built as a five-level static HTML/canvas game with Codex, GPT-5.5 Pro critique/tuning, and Image Gen art.",
+    "Built as a five-stage static HTML/canvas game with Codex, GPT-5.5 Pro critique/tuning, and Image Gen art.",
   ].join("\n");
   try {
     await navigator.clipboard.writeText(note);
