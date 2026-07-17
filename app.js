@@ -19,6 +19,8 @@ const overlayTitle = document.querySelector("#overlay-title");
 const overlayCopy = document.querySelector("#overlay-copy");
 const startButton = document.querySelector("#start-button");
 const overlayControls = document.querySelector("#overlay-controls");
+const briefingStatsEl = document.querySelector(".briefing-stats");
+const actionHintEl = document.querySelector(".action-hint");
 const gameInstructionsEl = document.querySelector("#game-instructions");
 const resultsEl = document.querySelector("#results");
 const resultRankEl = document.querySelector("#result-rank");
@@ -274,6 +276,7 @@ function resetState() {
     dashTime: 0,
     shield: 0,
     parryReady: false,
+    cleanDodgeReady: false,
     hazardContacts: new Set(),
     hitCooldown: 0,
     levelFlash: 0,
@@ -293,7 +296,7 @@ function resetState() {
     title: "Make the room believe.",
     copy: "Lock four build pieces, survive final review, and launch before time, focus, or demo heat runs out.",
     button: "Start the sprint",
-    howTo: "Hold the glowing target to lock it. Dash through a hazard for one parry bonus. Red hazards drain focus and add heat.",
+    howTo: "Hold the glowing target to lock it. Skim a hazard edge for +75; hit one while dashing for a parry.",
     showControls: true,
   });
 }
@@ -310,6 +313,8 @@ function showOverlay({ kicker, title, copy, button, howTo = "", showControls = f
   gameInstructionsEl.textContent = howTo;
   gameInstructionsEl.classList.toggle("is-hidden", !howTo);
   overlayControls.classList.toggle("is-hidden", !showControls);
+  briefingStatsEl.classList.toggle("is-hidden", !showControls);
+  actionHintEl.classList.toggle("is-hidden", !showControls);
   resultsEl.classList.toggle("is-hidden", !showResults);
   overlay.classList.toggle("has-results", showResults);
   shareResultButton.classList.add("is-hidden");
@@ -475,12 +480,13 @@ function syncHud() {
   routeProgressEl.textContent = `${state.mode === "won" ? 5 : Math.min(state.nextIndex, 4)} / 5`;
 
   checklistEls.forEach((el) => {
-    const itemIndex = missions.findIndex((item) => item.key === el.dataset.item);
-    const isDone = Boolean(state.collected[el.dataset.item]);
-    const isCurrent = itemIndex === state.nextIndex;
+    const isLaunch = el.dataset.item === "launch";
+    const itemIndex = isLaunch ? missions.length : missions.findIndex((item) => item.key === el.dataset.item);
+    const isDone = isLaunch ? state.mode === "won" : Boolean(state.collected[el.dataset.item]);
+    const isCurrent = isLaunch ? state.nextIndex >= missions.length && state.mode !== "won" : itemIndex === state.nextIndex;
     el.classList.toggle("is-done", isDone);
     el.classList.toggle("is-current", isCurrent);
-    el.querySelector("em").textContent = isDone ? "Complete" : isCurrent ? "Current" : "Locked";
+    el.querySelector("em").textContent = isDone ? "Complete" : isCurrent ? (isLaunch ? "Ready" : "Current") : "Locked";
     if (isCurrent) el.setAttribute("aria-current", "step");
     else el.removeAttribute("aria-current");
   });
@@ -512,6 +518,39 @@ function drawImageCover(image, x, y, w, h) {
   ctx.drawImage(image, sx, sy, sw, sh, x, y, w, h);
 }
 
+function colorWithAlpha(color, alpha) {
+  const match = /^#([\da-f]{6})$/i.exec(color);
+  if (!match) return color;
+  const value = Number.parseInt(match[1], 16);
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
+}
+
+function drawFieldGrid() {
+  const horizon = world.h * 0.48;
+  const floor = world.h * 1.04;
+  ctx.save();
+  ctx.strokeStyle = "rgba(92, 222, 181, 0.09)";
+  ctx.lineWidth = 1;
+
+  for (let index = -7; index <= 7; index += 1) {
+    ctx.beginPath();
+    ctx.moveTo(world.w * 0.54 + index * world.w * 0.025, horizon);
+    ctx.lineTo(world.w * 0.54 + index * world.w * 0.105, floor);
+    ctx.stroke();
+  }
+
+  for (let index = 1; index <= 6; index += 1) {
+    const ratio = index / 6;
+    const y = horizon + ratio * ratio * (floor - horizon);
+    ctx.globalAlpha = 0.45 + ratio * 0.55;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(world.w, y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 function drawSprite(name, x, y, size, alpha = 1, rotation = 0) {
   if (!sprites.complete || !sprites.naturalWidth) return;
   const [cx, cy] = spriteMap[name];
@@ -534,8 +573,25 @@ function drawBackground() {
   }
 
   const heatAlpha = state ? state.heat / 100 : 0;
-  ctx.fillStyle = `rgba(0, 0, 0, ${0.12 + heatAlpha * 0.1})`;
+  ctx.fillStyle = `rgba(0, 0, 0, ${0.06 + heatAlpha * 0.08})`;
   ctx.fillRect(0, 0, world.w, world.h);
+
+  if (state) {
+    const mission = currentMission();
+    const target = mission ? missionPosition(mission, state.nextIndex) : pct(gate);
+    const targetColor = mission?.color || "#9aff76";
+    const spotlight = ctx.createRadialGradient(target.x, target.y, 0, target.x, target.y, world.unit * 0.42);
+    spotlight.addColorStop(0, colorWithAlpha(targetColor, 0.16));
+    spotlight.addColorStop(0.32, colorWithAlpha(targetColor, 0.055));
+    spotlight.addColorStop(1, colorWithAlpha(targetColor, 0));
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    ctx.fillStyle = spotlight;
+    ctx.fillRect(0, 0, world.w, world.h);
+    ctx.restore();
+  }
+
+  drawFieldGrid();
 
   const vignette = ctx.createRadialGradient(
     world.w * 0.54,
@@ -546,9 +602,19 @@ function drawBackground() {
     world.unit * 0.82,
   );
   vignette.addColorStop(0, "rgba(0,0,0,0)");
-  vignette.addColorStop(1, "rgba(0,0,0,0.36)");
+  vignette.addColorStop(1, "rgba(0,0,0,0.3)");
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, world.w, world.h);
+
+  if (state && !reduceMotion) {
+    const scanY = (state.elapsed * responsiveSize(58, 34, 72)) % (world.h + 120) - 60;
+    const scan = ctx.createLinearGradient(0, scanY - 36, 0, scanY + 36);
+    scan.addColorStop(0, "rgba(109, 255, 184, 0)");
+    scan.addColorStop(0.5, "rgba(109, 255, 184, 0.045)");
+    scan.addColorStop(1, "rgba(109, 255, 184, 0)");
+    ctx.fillStyle = scan;
+    ctx.fillRect(0, scanY - 36, world.w, 72);
+  }
 
   if (state?.flash > 0) {
     ctx.fillStyle = `rgba(255, 103, 94, ${state.flash * 0.18})`;
@@ -564,7 +630,19 @@ function drawRoute() {
   ];
 
   ctx.save();
+  ctx.setLineDash([]);
+  ctx.lineCap = "round";
+  ctx.lineWidth = responsiveSize(11, 6, 12);
+  ctx.strokeStyle = "rgba(0, 7, 5, 0.52)";
+  ctx.beginPath();
+  points.forEach((point, index) => {
+    if (index === 0) ctx.moveTo(point.x, point.y);
+    else ctx.lineTo(point.x, point.y);
+  });
+  ctx.stroke();
+
   ctx.setLineDash([2, responsiveSize(22, 10, 20)]);
+  ctx.lineDashOffset = reduceMotion ? 0 : -state.elapsed * responsiveSize(24, 14, 28);
   ctx.lineCap = "round";
   ctx.lineWidth = responsiveSize(5, 3, 5);
   ctx.strokeStyle = "rgba(57, 231, 255, 0.35)";
@@ -588,6 +666,18 @@ function drawRoute() {
     else ctx.lineTo(point.x, point.y);
   });
   ctx.stroke();
+
+  points.forEach((point, index) => {
+    const reached = index <= active;
+    const radius = responsiveSize(reached ? 7 : 5, 3, 8);
+    ctx.globalAlpha = reached ? 0.92 : 0.38;
+    ctx.fillStyle = reached ? "#9aff76" : "#39e7ff";
+    ctx.shadowColor = ctx.fillStyle;
+    ctx.shadowBlur = reached ? 15 : 8;
+    ctx.beginPath();
+    ctx.arc(point.x, point.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  });
   ctx.restore();
 }
 
@@ -605,18 +695,64 @@ function drawLabel(text, x, y, color, alpha = 1) {
 }
 
 function drawTargetRing(x, y, radius, color, t) {
+  const pulse = reduceMotion ? 0 : Math.sin(t * 5) * 5;
   ctx.save();
+  const glow = ctx.createRadialGradient(x, y, radius * 0.12, x, y, radius * 1.5);
+  glow.addColorStop(0, colorWithAlpha(color, 0.16));
+  glow.addColorStop(0.52, colorWithAlpha(color, 0.045));
+  glow.addColorStop(1, colorWithAlpha(color, 0));
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 1.5, 0, Math.PI * 2);
+  ctx.fill();
+
   ctx.lineWidth = responsiveSize(4, 2, 4);
   ctx.strokeStyle = color;
   ctx.shadowColor = color;
   ctx.shadowBlur = 18;
   ctx.globalAlpha = 0.8;
   ctx.beginPath();
-  ctx.arc(x, y, radius + Math.sin(t * 5) * 5, 0, Math.PI * 2);
+  ctx.arc(x, y, radius + pulse, 0, Math.PI * 2);
   ctx.stroke();
   ctx.globalAlpha = 0.24;
   ctx.beginPath();
-  ctx.arc(x, y, radius + 18 + Math.sin(t * 3) * 8, 0, Math.PI * 2);
+  ctx.arc(x, y, radius + 18 + (reduceMotion ? 0 : Math.sin(t * 3) * 8), 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.globalAlpha = 0.9;
+  ctx.lineWidth = responsiveSize(5, 2.5, 5);
+  ctx.lineCap = "square";
+  for (let index = 0; index < 4; index += 1) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(index * Math.PI * 0.5 + (reduceMotion ? 0 : t * 0.08));
+    ctx.beginPath();
+    ctx.moveTo(radius + 9, -responsiveSize(10, 5, 11));
+    ctx.lineTo(radius + 9, responsiveSize(10, 5, 11));
+    ctx.stroke();
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+function drawHazardAura(point, t, phase) {
+  ctx.save();
+  const glow = ctx.createRadialGradient(point.x, point.y, point.r * 0.15, point.x, point.y, point.r * 1.85);
+  glow.addColorStop(0, "rgba(255, 103, 94, 0.18)");
+  glow.addColorStop(0.55, "rgba(255, 103, 94, 0.055)");
+  glow.addColorStop(1, "rgba(255, 103, 94, 0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, point.r * 1.85, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.globalAlpha = 0.38;
+  ctx.strokeStyle = "#ff675e";
+  ctx.lineWidth = responsiveSize(2, 1, 2);
+  ctx.setLineDash([responsiveSize(7, 4, 8), responsiveSize(10, 6, 12)]);
+  ctx.lineDashOffset = reduceMotion ? 0 : -(t * 18 + phase * 12);
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, point.r * 1.38, 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
 }
@@ -699,6 +835,62 @@ function drawDeadlineHeat() {
   ctx.restore();
 }
 
+function drawPlayerTrail(player, size) {
+  ctx.save();
+  const aura = ctx.createRadialGradient(player.x, player.y, size * 0.08, player.x, player.y, size * 0.7);
+  aura.addColorStop(0, "rgba(57, 231, 255, 0.2)");
+  aura.addColorStop(1, "rgba(57, 231, 255, 0)");
+  ctx.fillStyle = aura;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, size * 0.7, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (state.dashTime > 0) {
+    const trailLength = size * 1.55;
+    const tailX = player.x - player.lastDx * trailLength;
+    const tailY = player.y - player.lastDy * trailLength;
+    const trail = ctx.createLinearGradient(tailX, tailY, player.x, player.y);
+    trail.addColorStop(0, "rgba(57, 231, 255, 0)");
+    trail.addColorStop(1, "rgba(167, 255, 131, 0.72)");
+    ctx.strokeStyle = trail;
+    ctx.lineWidth = size * 0.24;
+    ctx.lineCap = "round";
+    ctx.shadowColor = "#39e7ff";
+    ctx.shadowBlur = 24;
+    ctx.beginPath();
+    ctx.moveTo(tailX, tailY);
+    ctx.lineTo(player.x, player.y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawStatusMessage(message) {
+  const fontSize = clamp(world.unit * 0.032, 13, 18);
+  const x = responsiveSize(22, 10, 24);
+  const paddingX = responsiveSize(14, 9, 16);
+  const height = responsiveSize(38, 30, 42);
+  const y = world.h - height - responsiveSize(16, 8, 18);
+
+  ctx.save();
+  ctx.font = `760 ${fontSize}px "Arial Narrow", system-ui, sans-serif`;
+  const width = clamp(ctx.measureText(message).width + paddingX * 2, world.w * 0.22, world.w - x * 2);
+  ctx.fillStyle = "rgba(2, 9, 6, 0.82)";
+  ctx.strokeStyle = "rgba(167, 255, 131, 0.22)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  roundedRectPath(x, y, width, height, responsiveSize(7, 4, 8));
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "rgba(242, 247, 241, 0.96)";
+  ctx.shadowColor = "#000";
+  ctx.shadowBlur = 10;
+  ctx.fillText(message, x + paddingX, y + height * 0.52, width - paddingX * 2);
+  ctx.restore();
+}
+
 function drawGame() {
   if (!state) return;
 
@@ -745,6 +937,7 @@ function drawGame() {
   activeHazards().forEach((hazard) => {
     const point = hazardPosition(hazard);
     const pulse = reduceMotion ? 1 : 1 + Math.sin(t * 5 + hazard.phase) * 0.045;
+    drawHazardAura(point, t, hazard.phase);
     ctx.save();
     ctx.globalAlpha = 0.22;
     ctx.strokeStyle = "#ff675e";
@@ -795,6 +988,7 @@ function drawGame() {
   const p = state.player;
   const playerSize = responsiveSize(90, 58, 96);
   const angle = Math.atan2(p.vy || -1, p.vx || 1) + Math.PI / 4;
+  drawPlayerTrail(p, playerSize);
   if (state.shield > 0) {
     ctx.save();
     ctx.globalAlpha = 0.42;
@@ -809,18 +1003,7 @@ function drawGame() {
   }
   drawSprite("player", p.x, p.y, playerSize, state.hitCooldown > 0 ? 0.62 : 1, angle);
 
-  ctx.save();
-  ctx.font = `760 ${clamp(world.unit * 0.032, 13, 18)}px "Arial Narrow", system-ui, sans-serif`;
-  ctx.fillStyle = "rgba(242, 247, 241, 0.94)";
-  ctx.shadowColor = "#000";
-  ctx.shadowBlur = 12;
-  ctx.fillText(
-    state.message,
-    responsiveSize(30, 14, 30),
-    world.h - responsiveSize(30, 18, 30),
-    world.w - responsiveSize(60, 28, 60),
-  );
-  ctx.restore();
+  drawStatusMessage(state.message);
 
   ctx.restore();
 }
@@ -877,7 +1060,8 @@ function dash() {
   state.dashCooldown = 1.5;
   state.shield = 0.34;
   state.parryReady = true;
-  state.message = "Dash live. One clean parry is armed.";
+  state.cleanDodgeReady = true;
+  state.message = "Dash live. Clean dodge or one parry is armed.";
   announce(state.message);
   spawnBurst(p.x, p.y, "#ffd84f", 14);
   ping(860, 0.04);
@@ -1093,7 +1277,19 @@ function update(dt, wallDt = dt) {
   const nextHazardContacts = new Set();
   activeHazards().forEach((hazard, hazardIndex) => {
     const point = hazardPosition(hazard);
-    if (distance(state.player, point) < point.r + state.player.r) {
+    const edgeGap = distance(state.player, point) - point.r - state.player.r;
+    if (state.dashTime > 0 && state.cleanDodgeReady && edgeGap > 0 && edgeGap <= responsiveSize(28, 20, 36)) {
+      state.cleanDodgeReady = false;
+      state.score += 75;
+      state.heat = clamp(state.heat - 3, 0, 100);
+      state.combo = clamp(state.combo + 0.06, 1, 2.4);
+      state.message = "Clean dodge. Scope pressure cooled.";
+      announce(state.message);
+      spawnBurst(point.x, point.y, "#39e7ff", 10);
+      addFloater("+75 clean dodge", point.x, point.y - 12, "#39e7ff");
+      ping(740, 0.045);
+    }
+    if (edgeGap < 0) {
       nextHazardContacts.add(hazardIndex);
       if (state.hazardContacts.has(hazardIndex)) return;
 
